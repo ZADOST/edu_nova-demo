@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_container.dart';
 
@@ -12,6 +13,10 @@ class ParentDashboard extends StatefulWidget {
 
 class _ParentDashboardState extends State<ParentDashboard> {
   int _selectedIndex = 0;
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +97,11 @@ class _ParentDashboardState extends State<ParentDashboard> {
           _buildInfoTile('School', 'ZAS Tech International School'),
           _buildInfoTile('Class', '10th Grade Science'),
           _buildInfoTile('Teacher', 'Prof. Alan Turing'),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _showMessage('Viewing child profile details.'),
+            child: const Text('VIEW PROFILE'),
+          ),
           const SizedBox(height: 80),
         ],
       ),
@@ -110,6 +120,11 @@ class _ParentDashboardState extends State<ParentDashboard> {
           _buildInfoTile('Late', '1 day'),
           const SizedBox(height: 24),
           _buildInfoTile('Last Updated', 'Today, 08:30 AM'),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _showMessage('Viewing attendance history.'),
+            child: const Text('VIEW ATTENDANCE HISTORY'),
+          ),
           const SizedBox(height: 80),
         ],
       ),
@@ -127,6 +142,11 @@ class _ParentDashboardState extends State<ParentDashboard> {
           _buildGradeRow('Mathematics', 'A-'),
           _buildGradeRow('English', 'B+'),
           _buildGradeRow('Computer Science', 'A'),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _showMessage('Opening detailed grade report.'),
+            child: const Text('OPEN GRADE REPORT'),
+          ),
           const SizedBox(height: 80),
         ],
       ),
@@ -143,6 +163,11 @@ class _ParentDashboardState extends State<ParentDashboard> {
           _buildAnnouncementItem('Parent–teacher meeting tomorrow at 5 PM.'),
           _buildAnnouncementItem('Child has an upcoming science fair this week.'),
           _buildAnnouncementItem('School bus schedule updated for next Monday.'),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.go('/announcements'),
+            child: const Text('VIEW ALL ANNOUNCEMENTS'),
+          ),
           const SizedBox(height: 80),
         ],
       ),

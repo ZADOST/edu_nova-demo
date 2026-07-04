@@ -16,6 +16,10 @@ class PrincipalDashboard extends StatefulWidget {
 class _PrincipalDashboardState extends State<PrincipalDashboard> {
   int _selectedIndex = 0;
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final authDb = LocalAuthDb(prefs);
@@ -133,9 +137,9 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildPendingItem('Leave Permission', 'Mr. Akar Shwan', 'IT Support'),
+                    _buildPendingItem('Leave Permission', 'Mr. Akar Shwan', 'IT Support', () => _showMessage('Reviewing leave permission for Mr. Akar Shwan.')),
                     const Divider(color: Colors.white24),
-                    _buildPendingItem('Late Arrival Excuse', 'Shilan Azad', 'Student - 3rd Grade'),
+                    _buildPendingItem('Late Arrival Excuse', 'Shilan Azad', 'Student - 3rd Grade', () => _showMessage('Reviewing late arrival excuse for Shilan Azad.')),
                   ],
                 ),
               ),
@@ -163,6 +167,12 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
               Expanded(child: _buildAttendanceCard('Absent Teachers', '1', false)),
             ],
           ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.push('/principal/student-id-cards'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow),
+            child: const Text('Create Student ID Cards', style: TextStyle(color: AppTheme.darkCharcoal)),
+          ),
         ],
       ),
     );
@@ -184,12 +194,14 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
     );
   }
 
-  Widget _buildPendingItem(String type, String name, String details) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+  Widget _buildPendingItem(String type, String name, String details, [VoidCallback? onTap]) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

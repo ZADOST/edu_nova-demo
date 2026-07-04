@@ -103,13 +103,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return true;
   }
 
-  void _showPlaceholderMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
   Widget _buildSectionTopBar(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -212,7 +205,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 children: [
                   GestureDetector(onTap: () => setState(() => _selectedIndex = 1), child: _buildQuickAction(Icons.qr_code_scanner, 'Attendance')),
                   GestureDetector(onTap: () => setState(() => _selectedIndex = 2), child: _buildQuickAction(Icons.assignment, 'Grades')),
-                  _buildQuickAction(Icons.receipt_long, 'Transcript'),
+                  GestureDetector(onTap: () => setState(() => _selectedIndex = 2), child: _buildQuickAction(Icons.receipt_long, 'Transcript')),
                   GestureDetector(onTap: () => setState(() => _selectedIndex = 3), child: _buildQuickAction(Icons.person, 'Profile')),
                 ],
               ),
@@ -252,7 +245,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       const SizedBox(height: 8),
                       Text('Scan the professor\'s classroom QR code to log your attendance instantly.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7))),
                       const SizedBox(height: 16),
-                      ElevatedButton(onPressed: () => _showPlaceholderMessage('Scanner will be available soon.'), child: const Text('OPEN SCANNER')),
+                      ElevatedButton(onPressed: () => context.push('/student/attendance'), child: const Text('OPEN SCANNER')),
                     ],
                   ),
                 ),

@@ -8,6 +8,10 @@ import '../../../core/widgets/glass_container.dart';
 class PrincipalAssistantDashboard extends StatelessWidget {
   const PrincipalAssistantDashboard({super.key});
 
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final authDb = LocalAuthDb(prefs);
@@ -56,9 +60,9 @@ class PrincipalAssistantDashboard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildPendingItem('Leave Permission', 'Mr. Akar Shwan', 'IT Support'),
+                  _buildPendingItem('Leave Permission', 'Mr. Akar Shwan', 'IT Support', () => _showMessage(context, 'Reviewing leave permission for Mr. Akar Shwan.')),
                   const Divider(color: Colors.white24),
-                  _buildPendingItem('Late Arrival Excuse', 'Shilan Azad', 'Student - 3rd Grade'),
+                  _buildPendingItem('Late Arrival Excuse', 'Shilan Azad', 'Student - 3rd Grade', () => _showMessage(context, 'Reviewing late arrival excuse for Shilan Azad.')),
                 ],
               ),
             ),
@@ -80,12 +84,14 @@ class PrincipalAssistantDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildPendingItem(String type, String name, String details) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+  Widget _buildPendingItem(String type, String name, String details, [VoidCallback? onTap]) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

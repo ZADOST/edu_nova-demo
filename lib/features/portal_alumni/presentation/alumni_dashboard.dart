@@ -21,6 +21,10 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
   bool _isLoading = true;
   int _selectedIndex = 0;
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -138,9 +142,9 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
             const SizedBox(height: 32),
             Row(
               children: [
-                Expanded(child: _buildServiceButton(Icons.description, 'Transcript')),
+                Expanded(child: _buildServiceButton(Icons.description, 'Transcript', () => _showMessage('Transcript request submitted.'))),
                 const SizedBox(width: 16),
-                Expanded(child: _buildServiceButton(Icons.card_membership, 'Diploma')),
+                Expanded(child: _buildServiceButton(Icons.card_membership, 'Diploma', () => _showMessage('Diploma request submitted.'))),
               ],
             ),
           ])),
@@ -159,7 +163,7 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
         children: [
           const Text('Upcoming Events', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
-          ..._events.map((event) => EventGlassCard(event: event)).toList(),
+          ..._events.map((event) => EventGlassCard(event: event)),
           const SizedBox(height: 80),
         ],
       ),
@@ -186,7 +190,7 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
                 const SizedBox(height: 8),
                 Text('Give back to the community by mentoring current Computer Education students.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7))),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: () {}, child: const Text('JOIN MENTORS')),
+                ElevatedButton(onPressed: () => _showMessage('Joined mentorship program.'), child: const Text('JOIN MENTORS')),
               ],
             ),
           ),
@@ -195,15 +199,18 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
     );
   }
 
-  Widget _buildServiceButton(IconData icon, String label) {
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      child: Column(
-        children: [
-          Icon(icon, color: AppTheme.mintGlow, size: 28),
-          const SizedBox(height: 12),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
+  Widget _buildServiceButton(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassContainer(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
+          children: [
+            Icon(icon, color: AppTheme.mintGlow, size: 28),
+            const SizedBox(height: 12),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

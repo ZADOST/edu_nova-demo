@@ -16,6 +16,10 @@ class HRDashboard extends StatefulWidget {
 class _HRDashboardState extends State<HRDashboard> {
   int _selectedIndex = 0;
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final authDb = LocalAuthDb(prefs);
@@ -139,14 +143,14 @@ class _HRDashboardState extends State<HRDashboard> {
                       leading: const Icon(Icons.person_add, color: AppTheme.pureWhite),
                       title: const Text('Onboard New Teacher', style: TextStyle(color: AppTheme.pureWhite)),
                       trailing: const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-                      onTap: () {},
+                      onTap: () => _showMessage('Starting onboarding workflow.'),
                     ),
                     const Divider(color: Colors.white24),
                     ListTile(
                       leading: const Icon(Icons.assessment, color: AppTheme.pureWhite),
                       title: const Text('Performance Reviews', style: TextStyle(color: AppTheme.pureWhite)),
                       trailing: const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-                      onTap: () {},
+                      onTap: () => _showMessage('Opening performance review queue.'),
                     ),
                   ],
                 ),

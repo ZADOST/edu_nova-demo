@@ -74,7 +74,7 @@ class FinancialGlassCard extends StatelessWidget {
             children: [
               Switch(
                 value: !financeRecord.isBlocked, // True means active, False means blocked
-                activeColor: AppTheme.mintGlow,
+                activeThumbColor: AppTheme.mintGlow,
                 inactiveThumbColor: Colors.redAccent,
                 inactiveTrackColor: Colors.redAccent.withOpacity(0.3),
                 onChanged: (val) => onToggleBlock(),

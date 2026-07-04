@@ -16,7 +16,6 @@ class AppTheme {
         primary: mintGlow,
         secondary: deepTeal,
         surface: darkCharcoal,
-        background: darkCharcoal,
         error: Colors.redAccent,
       ),
       textTheme: const TextTheme(

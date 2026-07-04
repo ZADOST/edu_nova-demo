@@ -7,11 +7,18 @@ import '../theme/app_theme.dart';
 import '../../features/authentication/presentation/login_screen.dart';
 import '../../features/dashboard_student/presentation/student_dashboard.dart';
 import '../../features/dashboard_teacher/presentation/teacher_dashboard.dart';
+import '../../features/dashboard_teacher/presentation/teacher_attendance_screen.dart';
+import '../../features/dashboard_teacher/presentation/teacher_grade_entry_screen.dart';
+import '../../features/dashboard_student/presentation/student_attendance_scanner_screen.dart';
 import '../../features/management_admin/presentation/assistant_dashboard.dart';
 import '../../features/management_admin/presentation/principal_dashboard.dart';
+import '../../features/management_admin/presentation/principal_student_id_cards_screen.dart';
+import '../../features/dashboard_teacher/presentation/teacher_student_id_scan_screen.dart';
+import '../../features/dashboard_teacher/presentation/teacher_student_qr_scanner_screen.dart';
 import '../../features/management_finance/presentation/accounting_dashboard.dart';
 import '../../features/management_hr/presentation/hr_dashboard.dart';
 import '../../features/portal_alumni/presentation/alumni_dashboard.dart';
+import '../data/student_id_card_repository.dart';
 import '../screens/splash_screen.dart';
 import '../screens/parent_dashboard.dart';
 import '../screens/settings_screen.dart';
@@ -90,8 +97,34 @@ class AppRouter {
         builder: (context, state) => const StudentDashboard(),
       ),
       GoRoute(
+        path: '/student/attendance',
+        builder: (context, state) => const StudentAttendanceScannerScreen(),
+      ),
+      GoRoute(
         path: '/teacher',
         builder: (context, state) => const TeacherDashboard(),
+      ),
+      GoRoute(
+        path: '/teacher/attendance',
+        builder: (context, state) => const TeacherAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/teacher/grade-entry',
+        builder: (context, state) => TeacherGradeEntryScreen(
+          initialCourse: state.queryParameters['course'] ?? 'Advanced Java OOP',
+        ),
+      ),
+      GoRoute(
+        path: '/teacher/student-scan',
+        builder: (context, state) {
+          final studentId = state.queryParameters['id'];
+          final student = StudentIdCardRepository.findById(studentId ?? '') ?? StudentIdCardRepository.sampleCards.first;
+          return TeacherStudentIdScanScreen(student: student);
+        },
+      ),
+      GoRoute(
+        path: '/teacher/student-qr-scanner',
+        builder: (context, state) => const TeacherStudentQrScannerScreen(),
       ),
       GoRoute(
         path: '/assistant_principal',
@@ -100,6 +133,10 @@ class AppRouter {
       GoRoute(
         path: '/principal',
         builder: (context, state) => const PrincipalDashboard(),
+      ),
+      GoRoute(
+        path: '/principal/student-id-cards',
+        builder: (context, state) => const PrincipalStudentIdCardsScreen(),
       ),
       GoRoute(
         path: '/accounting',
