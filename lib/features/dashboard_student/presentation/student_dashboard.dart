@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +21,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final prefs = await SharedPreferences.getInstance();
     final authDb = LocalAuthDb(prefs);
     await authDb.clearSession();
-    
+
     if (context.mounted) {
       context.go('/login');
     }
@@ -29,45 +29,48 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.darkCharcoal,
-      body: _buildCurrentView(),
-      
-      extendBody: true,
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.darkCharcoal.withValues(alpha: 0.5),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: BottomNavigationBar(
-              backgroundColor: AppTheme.deepTeal.withValues(alpha: 0.8),
-              elevation: 0,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: AppTheme.mintGlow,
-              unselectedItemColor: AppTheme.pureWhite.withValues(alpha: 0.5),
-              currentIndex: _selectedIndex,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-                BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Schedule'),
-                BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Grades'),
-                BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-              ],
+    // ignore: deprecated_member_use
+    return WillPopScope(
+      onWillPop: _handleBackPressed,
+      child: Scaffold(
+        backgroundColor: AppTheme.darkCharcoal,
+        body: _buildCurrentView(),
+        extendBody: true,
+        bottomNavigationBar: Container(
+          margin: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.darkCharcoal.withValues(alpha: 0.5),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: BottomNavigationBar(
+                backgroundColor: AppTheme.deepTeal.withValues(alpha: 0.8),
+                elevation: 0,
+                type: BottomNavigationBarType.fixed,
+                selectedItemColor: AppTheme.mintGlow,
+                unselectedItemColor: AppTheme.pureWhite.withValues(alpha: 0.5),
+                currentIndex: _selectedIndex,
+                onTap: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+                  BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Schedule'),
+                  BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Grades'),
+                  BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+                ],
+              ),
             ),
           ),
         ),
@@ -90,9 +93,39 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
-  // ==========================================
-  // TAB 0: HOME VIEW
-  // ==========================================
+  Future<bool> _handleBackPressed() async {
+    if (_selectedIndex != 0) {
+      setState(() {
+        _selectedIndex = 0;
+      });
+      return false;
+    }
+    return true;
+  }
+
+  void _showPlaceholderMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Widget _buildSectionTopBar(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppTheme.mintGlow),
+            onPressed: () => setState(() => _selectedIndex = 0),
+          ),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHomeView() {
     return CustomScrollView(
       slivers: [
@@ -103,6 +136,22 @@ class _StudentDashboardState extends State<StudentDashboard> {
           backgroundColor: AppTheme.darkCharcoal,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.calendar_month, color: AppTheme.mintGlow),
+              onPressed: () => context.push('/timetable'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.person, color: AppTheme.mintGlow),
+              onPressed: () => context.push('/profile'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications, color: AppTheme.mintGlow),
+              onPressed: () => context.push('/notifications'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings, color: AppTheme.mintGlow),
+              onPressed: () => context.push('/settings'),
+            ),
             IconButton(
               icon: const Icon(Icons.logout, color: AppTheme.mintGlow),
               onPressed: () => _handleLogout(context),
@@ -128,11 +177,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
               child: Stack(
                 children: [
                   Positioned(
-                    right: -50, top: -50,
+                    right: -50,
+                    top: -50,
                     child: CircleAvatar(radius: 100, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.05)),
                   ),
                   Positioned(
-                    left: 24, top: 80,
+                    left: 24,
+                    top: 80,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -179,54 +230,65 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // ==========================================
-  // TAB 1: SCHEDULE & ATTENDANCE VIEW
-  // ==========================================
   Widget _buildScheduleView() {
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24.0),
+      child: Column(
         children: [
-          const Text('Academic Schedule', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          GlassContainer(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          _buildSectionTopBar('Schedule'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const Icon(Icons.qr_code_2, color: AppTheme.mintGlow, size: 64),
-                const SizedBox(height: 16),
-                const Text('Smart Attendance Manager', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text('Scan the professor\'s classroom QR code to log your attendance instantly.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7))),
+                const Text('Academic Schedule', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
+                GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.qr_code_2, color: AppTheme.mintGlow, size: 64),
+                      const SizedBox(height: 16),
+                      const Text('Smart Attendance Manager', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text('Scan the professor\'s classroom QR code to log your attendance instantly.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7))),
+                      const SizedBox(height: 16),
+                      ElevatedButton(onPressed: () => _showPlaceholderMessage('Scanner will be available soon.'), child: const Text('OPEN SCANNER')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text('Upcoming Classes', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                ElevatedButton(onPressed: () {}, child: const Text('OPEN SCANNER')),
+                const CourseGlassCard(courseName: 'Advanced Java OOP', instructor: 'Dr. Alan Turing', time: '10:00 AM - 11:30 AM', progress: 0.0),
+                const SizedBox(height: 80),
               ],
             ),
           ),
-          const SizedBox(height: 32),
-          const Text('Upcoming Classes', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          const CourseGlassCard(courseName: 'Advanced Java OOP', instructor: 'Dr. Alan Turing', time: '10:00 AM - 11:30 AM', progress: 0.0),
-          const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  // ==========================================
-  // TAB 2: GRADES VIEW
-  // ==========================================
   Widget _buildGradesView() {
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24.0),
+      child: Column(
         children: [
-          const Text('Academic Transcript', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          _buildGradeRow('Advanced Java OOP', 'A', '92%'),
-          _buildGradeRow('Database Management Systems', 'B+', '88%'),
-          _buildGradeRow('Software Engineering Principles', 'A-', '90%'),
-          _buildGradeRow('Mobile App Dev (Flutter)', 'A', '96%'),
+          _buildSectionTopBar('Grades'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              children: [
+                const SizedBox(height: 8),
+                const Text('Academic Transcript', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
+                _buildGradeRow('Advanced Java OOP', 'A', '92%'),
+                _buildGradeRow('Database Management Systems', 'B+', '88%'),
+                _buildGradeRow('Software Engineering Principles', 'A-', '90%'),
+                _buildGradeRow('Mobile App Dev (Flutter)', 'A', '96%'),
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -252,51 +314,56 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // ==========================================
-  // TAB 3: PROFILE VIEW
-  // ==========================================
   Widget _buildProfileView() {
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24.0),
+      child: Column(
         children: [
-          const Text('Student Profile', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          GlassContainer(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          _buildSectionTopBar('Profile'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                CircleAvatar(radius: 40, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.2), child: const Icon(Icons.person, size: 40, color: AppTheme.mintGlow)),
-                const SizedBox(height: 16),
-                const Text('Shazad Hassan Babakr', style: TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text('Junior Student', style: TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
+                const SizedBox(height: 8),
+                const Text('Student Profile', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
+                GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      CircleAvatar(radius: 40, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.2), child: const Icon(Icons.person, size: 40, color: AppTheme.mintGlow)),
+                      const SizedBox(height: 16),
+                      const Text('Shazad Hassan Babakr', style: TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      const Text('Junior Student', style: TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text('Academic Details', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                GlassContainer(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildProfileDetailRow('University', 'Tishk International University (TIU)'),
+                      const Divider(color: Colors.white24, height: 24),
+                      _buildProfileDetailRow('Department', 'Computer Education'),
+                      const Divider(color: Colors.white24, height: 24),
+                      _buildProfileDetailRow('Extracurricular', 'President & Coordinator of KSTIU'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text('Exchange Programs', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                GlassContainer(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildProfileDetailRow('Spring 2026', 'Universiti Teknologi Malaysia (UTM)'),
+                ),
+                const SizedBox(height: 80),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          const Text('Academic Details', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          GlassContainer(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildProfileDetailRow('University', 'Tishk International University (TIU)'),
-                const Divider(color: Colors.white24, height: 24),
-                _buildProfileDetailRow('Department', 'Computer Education'),
-                const Divider(color: Colors.white24, height: 24),
-                _buildProfileDetailRow('Extracurricular', 'President & Coordinator of KSTIU'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text('Exchange Programs', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          GlassContainer(
-            padding: const EdgeInsets.all(20),
-            child: _buildProfileDetailRow('Spring 2026', 'Universiti Teknologi Malaysia (UTM)'),
-          ),
-          const SizedBox(height: 80),
         ],
       ),
     );

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../db/local_auth_db.dart';
 import '../theme/app_theme.dart';
 
-// Importing all 7 role-based dashboards
+// Importing all 7 finalized role-based dashboards
 import '../../features/authentication/presentation/login_screen.dart';
 import '../../features/dashboard_student/presentation/student_dashboard.dart';
 import '../../features/dashboard_teacher/presentation/teacher_dashboard.dart';
@@ -12,6 +12,13 @@ import '../../features/management_admin/presentation/principal_dashboard.dart';
 import '../../features/management_finance/presentation/accounting_dashboard.dart';
 import '../../features/management_hr/presentation/hr_dashboard.dart';
 import '../../features/portal_alumni/presentation/alumni_dashboard.dart';
+import '../screens/splash_screen.dart';
+import '../screens/parent_dashboard.dart';
+import '../screens/settings_screen.dart';
+import '../screens/announcements_screen.dart';
+import '../screens/notifications_screen.dart';
+import '../screens/timetable_screen.dart';
+import '../screens/profile_screen.dart';
 
 class AppRouter {
   final LocalAuthDb authDb;
@@ -19,37 +26,41 @@ class AppRouter {
   AppRouter(this.authDb);
 
   late final GoRouter router = GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: _GoRouterRefreshStream(),
     redirect: (BuildContext context, GoRouterState state) {
       final bool loggedIn = authDb.isLoggedIn;
       final bool loggingIn = state.matchedLocation == '/login';
-      final bool isRoot = state.matchedLocation == '/'; 
+      final bool isSplash = state.matchedLocation == '/splash';
 
-      // If not logged in and not on login page, force to login
+      // Allow splash to show before any redirection
+      if (isSplash) {
+        return null;
+      }
+
+      // 1. Force unauthenticated users to login
       if (!loggedIn && !loggingIn) {
         return '/login';
       }
 
-      // If logged in but trying to access the login page OR the root '/' path, 
-      // intercept and redirect to the correct dashboard based on their role.
-      if (loggedIn && (loggingIn || isRoot)) {
+      // 2. Redirect authenticated users to their specific role dashboard
+      if (loggedIn && loggingIn) {
         final role = authDb.userRole;
         switch (role) {
           case 'student': return '/student';
           case 'teacher': return '/teacher';
+          case 'parent': return '/parent';
           case 'assistant_principal': return '/assistant_principal';
           case 'principal': return '/principal';
           case 'accounting': return '/accounting';
           case 'hr': return '/hr';
           case 'alumni': return '/alumni';
-          default: return '/login'; // Fallback
+          default: return '/login'; 
         }
       }
-
-      return null; // No redirect needed
+      return null; 
     },
-    // Custom 404 Error Screen
+    // 3. Graceful 404 handling
     errorBuilder: (context, state) => Scaffold(
       backgroundColor: AppTheme.darkCharcoal,
       body: Center(
@@ -58,25 +69,18 @@ class AppRouter {
           children: [
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 80),
             const SizedBox(height: 16),
-            const Text(
-              '404 - System Route Not Found',
-              style: TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'The requested module could not be located.',
-              style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 14),
-            ),
+            const Text('404 - Route Not Found', style: TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => context.go('/'),
-              child: const Text('Return to Dashboard'),
-            ),
+            ElevatedButton(onPressed: () => context.go('/splash'), child: const Text('Return Home')),
           ],
         ),
       ),
     ),
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -108,6 +112,30 @@ class AppRouter {
       GoRoute(
         path: '/alumni',
         builder: (context, state) => const AlumniDashboard(),
+      ),
+      GoRoute(
+        path: '/parent',
+        builder: (context, state) => const ParentDashboard(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/announcements',
+        builder: (context, state) => const AnnouncementsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/timetable',
+        builder: (context, state) => const TimetableScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
       ),
     ],
   );

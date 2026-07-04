@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../../core/db/local_auth_db.dart';
+import '../../../core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,12 +22,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late Animation<Color?> _colorAnimation1;
   late Animation<Color?> _colorAnimation2;
 
-  // Temporary dropdown variable for testing different roles
-  String _selectedTestRole = 'student';
-  final List<String> _roles = [
-    'student', 'teacher', 'assistant_principal', 
-    'principal', 'accounting', 'hr', 'alumni'
-  ];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -56,21 +53,89 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleLogin() async {
-    // 1. Get the local DB instance
-    final prefs = await SharedPreferences.getInstance();
-    final authDb = LocalAuthDb(prefs);
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-    // 2. Simulate API login by saving the selected role to local storage
-    await authDb.saveSession(
-      token: 'dummy_token_123',
-      role: _selectedTestRole,
-      userId: 'user_001',
-    );
-
-    // 3. Trigger GoRouter to recalculate the redirect based on the new role
-    if (mounted) {
-      context.go('/'); // The router will intercept this and redirect to the correct dashboard
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter both email and password.');
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiClient().post(
+        'auth/login.php',
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
+
+      final responseData = response.data;
+      if (responseData != null && responseData['status'] == 'success') {
+        final userData = responseData['data'];
+        final token = userData['access_token'] as String?;
+        final role = userData['role_identifier'] as String?;
+        final userId = userData['id'] as String?;
+
+        if (token == null || role == null || userId == null) {
+          _showMessage('Invalid server response. Please try again.');
+        } else {
+          final prefs = await SharedPreferences.getInstance();
+          final authDb = LocalAuthDb(prefs);
+          await authDb.saveSession(token: token, role: role, userId: userId);
+
+          if (mounted) {
+            final route = _routeForRole(role);
+            context.go(route);
+          }
+        }
+      } else {
+        final message = responseData?['message'] ?? 'Login failed. Please try again.';
+        _showMessage(message);
+      }
+    } on DioException catch (error) {
+      final message = error.response?.data?['message'] ??
+          'Unable to connect to the server. Please check your network and try again.';
+      _showMessage(message);
+    } catch (_) {
+      _showMessage('An unexpected error occurred. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  String _routeForRole(String role) {
+    switch (role) {
+      case 'student':
+        return '/student';
+      case 'teacher':
+        return '/teacher';
+      case 'parent':
+        return '/parent';
+      case 'assistant_principal':
+        return '/assistant_principal';
+      case 'principal':
+        return '/principal';
+      case 'accounting':
+        return '/accounting';
+      case 'hr':
+        return '/hr';
+      case 'alumni':
+        return '/alumni';
+      default:
+        return '/login';
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -125,34 +190,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                   const SizedBox(height: 40),
 
-                  // Development Testing Dropdown
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.deepTeal.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedTestRole,
-                        dropdownColor: AppTheme.darkCharcoal,
-                        icon: const Icon(Icons.arrow_drop_down, color: AppTheme.mintGlow),
-                        style: const TextStyle(color: AppTheme.pureWhite),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedTestRole = newValue!;
-                          });
-                        },
-                        items: _roles.map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text('Simulate Login As: ${value.toUpperCase()}'),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
 
                   // Email Field
                   TextField(
@@ -179,8 +216,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                   // Login Button
                   ElevatedButton(
-                    onPressed: _handleLogin,
-                    child: const Text('SECURE LOGIN'),
+                    onPressed: _isLoading ? null : _handleLogin,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.pureWhite,
+                            ),
+                          )
+                        : const Text('SECURE LOGIN'),
                   ),
                 ],
               ),

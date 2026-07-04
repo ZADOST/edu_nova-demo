@@ -12,7 +12,7 @@ class ApiClient {
     // Replace the IP below with your Surface Laptop's exact Wi-Fi IPv4 address.
     // Example: 'http://192.168.1.15/edu_nova_api/endpoints/'
     // Do NOT use 'http://localhost/' or 'http://127.0.0.1/' when deploying to a physical Xiaomi device.
-    const String baseUrl = 'http://192.168.1.72/edu_nova_api/endpoints/';
+    const String baseUrl = 'http://10.191.239.64/edu_nova_api/endpoints/';
 
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
