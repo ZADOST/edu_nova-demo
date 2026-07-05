@@ -17,7 +17,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   late AnimationController _bgController;
   late Animation<Color?> _colorAnimation1;
   late Animation<Color?> _colorAnimation2;
@@ -73,6 +73,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
 
       final responseData = response.data;
+
       if (responseData != null && responseData['status'] == 'success') {
         final userData = responseData['data'];
         final token = userData['access_token'] as String?;
@@ -84,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         } else {
           final prefs = await SharedPreferences.getInstance();
           final authDb = LocalAuthDb(prefs);
+
           await authDb.saveSession(token: token, role: role, userId: userId);
 
           if (mounted) {
@@ -189,7 +191,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(height: 40),
-
 
                   // Email Field
                   TextField(

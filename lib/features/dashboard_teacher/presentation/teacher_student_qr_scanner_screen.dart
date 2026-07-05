@@ -16,14 +16,19 @@ class _TeacherStudentQrScannerScreenState extends State<TeacherStudentQrScannerS
   bool _hasScanned = false;
   String _statusMessage = 'Position the student QR code inside the frame.';
 
-  void _handleDetect(Barcode barcode, MobileScannerArguments? args) {
+  void _handleDetect(BarcodeCapture capture) {
     if (_hasScanned) return;
-    final rawValue = barcode.rawValue;
+
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final rawValue = barcodes.first.rawValue;
     if (rawValue == null) return;
 
     setState(() => _hasScanned = true);
 
     final code = rawValue.trim();
+
     if (code.startsWith('STU-')) {
       final studentId = code.split('STU-').last;
       if (studentId.isNotEmpty) {
