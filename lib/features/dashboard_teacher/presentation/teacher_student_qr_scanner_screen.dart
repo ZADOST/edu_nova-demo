@@ -12,24 +12,16 @@ class TeacherStudentQrScannerScreen extends StatefulWidget {
 }
 
 class _TeacherStudentQrScannerScreenState extends State<TeacherStudentQrScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    facing: CameraFacing.back,
-  );
+  final MobileScannerController _controller = MobileScannerController();
   bool _hasScanned = false;
   String _statusMessage = 'Position the student QR code inside the frame.';
 
-  void _handleDetect(BarcodeCapture capture) {
+  void _handleDetect(Barcode barcode, MobileScannerArguments? args) {
     if (_hasScanned) return;
-    final barcode = capture.barcodes.first;
     final rawValue = barcode.rawValue;
-    if (rawValue == null) {
-      return;
-    }
+    if (rawValue == null) return;
 
-    setState(() {
-      _hasScanned = true;
-    });
+    setState(() => _hasScanned = true);
 
     final code = rawValue.trim();
     if (code.startsWith('STU-')) {

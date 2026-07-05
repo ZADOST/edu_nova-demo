@@ -22,7 +22,8 @@ class _TeacherStudentIdScanScreenState extends State<TeacherStudentIdScanScreen>
   final TextEditingController _reasonController = TextEditingController();
   int _minutesGranted = 5;
 
-  void _handleAction(String action) {
+  void _handleAction(String? action) {
+    if (action == null) return;
     setState(() {
       _selectedAction = action;
     });
@@ -67,11 +68,14 @@ class _TeacherStudentIdScanScreenState extends State<TeacherStudentIdScanScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  QrImage(
-                    data: widget.student.uniqueCode,
-                    version: QrVersions.auto,
-                    size: 180.0,
-                    backgroundColor: Colors.white,
+                  SizedBox(
+                    width: 180,
+                    height: 180,
+                    child: QrImageView(
+                      data: widget.student.uniqueCode,
+                      size: 180,
+                      backgroundColor: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(widget.student.name, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
@@ -88,20 +92,29 @@ class _TeacherStudentIdScanScreenState extends State<TeacherStudentIdScanScreen>
                 children: [
                   const Text('Select Outcome', style: TextStyle(color: AppTheme.mintGlow, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  RadioListTile<String>(
-                    activeColor: AppTheme.mintGlow,
-                    value: 'permission',
-                    groupValue: _selectedAction,
-                    title: const Text('Grant Permission', style: TextStyle(color: AppTheme.pureWhite)),
-                    subtitle: const Text('Assign minutes for this student.', style: TextStyle(color: AppTheme.pureWhite70)),
-                    onChanged: _handleAction,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: AppTheme.darkCharcoal, borderRadius: BorderRadius.circular(12)),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: _selectedAction,
+                        items: const [
+                          DropdownMenuItem(value: 'attended', child: Text('Mark Attended', style: TextStyle(color: AppTheme.pureWhite))),
+                          DropdownMenuItem(value: 'permission', child: Text('Grant Permission', style: TextStyle(color: AppTheme.pureWhite))),
+                          DropdownMenuItem(value: 'excused', child: Text('Excuse Student', style: TextStyle(color: AppTheme.pureWhite))),
+                        ],
+                        onChanged: _handleAction,
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 12),
                   if (_selectedAction == 'permission')
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0, bottom: 12.0),
+                      padding: const EdgeInsets.only(left: 0.0, bottom: 12.0),
                       child: Row(
                         children: [
-                          const Text('Minutes:', style: TextStyle(color: AppTheme.pureWhite70)),
+                          Text('Minutes:', style: TextStyle(color: AppTheme.pureWhite70)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Slider(
@@ -119,17 +132,9 @@ class _TeacherStudentIdScanScreenState extends State<TeacherStudentIdScanScreen>
                         ],
                       ),
                     ),
-                  RadioListTile<String>(
-                    activeColor: AppTheme.mintGlow,
-                    value: 'excused',
-                    groupValue: _selectedAction,
-                    title: const Text('Excuse Student', style: TextStyle(color: AppTheme.pureWhite)),
-                    subtitle: const Text('Write a reason for excusal.', style: TextStyle(color: AppTheme.pureWhite70)),
-                    onChanged: _handleAction,
-                  ),
                   if (_selectedAction == 'excused')
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0, bottom: 12.0),
+                      padding: const EdgeInsets.only(left: 0.0, bottom: 12.0),
                       child: TextField(
                         controller: _reasonController,
                         maxLines: 3,
@@ -146,14 +151,11 @@ class _TeacherStudentIdScanScreenState extends State<TeacherStudentIdScanScreen>
                         ),
                       ),
                     ),
-                  RadioListTile<String>(
-                    activeColor: AppTheme.mintGlow,
-                    value: 'attended',
-                    groupValue: _selectedAction,
-                    title: const Text('Mark Attended', style: TextStyle(color: AppTheme.pureWhite)),
-                    subtitle: const Text('Keep the student as present for the session.', style: TextStyle(color: AppTheme.pureWhite70)),
-                    onChanged: _handleAction,
-                  ),
+                  if (_selectedAction == 'attended')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                      child: Text('Keep the student as present for the session.', style: TextStyle(color: AppTheme.pureWhite70)),
+                    ),
                 ],
               ),
             ),

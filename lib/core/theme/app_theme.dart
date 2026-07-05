@@ -5,6 +5,7 @@ class AppTheme {
   static const Color deepTeal = Color(0xFF0B4135);
   static const Color darkCharcoal = Color(0xFF081412);
   static const Color pureWhite = Color(0xFFFFFFFF);
+  static Color pureWhite70 = pureWhite.withValues(alpha: 0.7);
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -44,5 +45,12 @@ class AppTheme {
         titleTextStyle: TextStyle(color: pureWhite, fontSize: 20, fontWeight: FontWeight.w600),
       ),
     );
+  }
+}
+
+extension AppColorOps on Color {
+  Color withValues({double alpha = 1.0}) {
+    final a = (alpha.clamp(0.0, 1.0) * 255).round();
+    return withAlpha(a);
   }
 }

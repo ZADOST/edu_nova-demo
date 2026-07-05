@@ -18,7 +18,7 @@ class TeacherGradeEntryScreen extends StatefulWidget {
 
 class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
   final TeacherRepository _repository = TeacherRepository();
-  List<SchoolClass> _todayClasses = [];
+  // removed unused _todayClasses field
   final List<StudentGrade> _students = [];
   bool _isLoading = true;
   bool _isSaving = false;
@@ -34,9 +34,9 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
 
   Future<void> _loadClasses() async {
     try {
-      final classes = await _repository.fetchTodayClasses();
+      await _repository.fetchTodayClasses();
       setState(() {
-        _todayClasses = classes;
+        // classes fetched (not stored here) — update loading state
         _isLoading = false;
       });
     } catch (_) {

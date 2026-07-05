@@ -202,15 +202,18 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(type, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600)),
-              Text('$name   $details', style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 12)),
-            ],
-          ),
-          const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(type, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600)),
+                  Text('$name   $details', style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
+          ],
+        ),
       ),
     );
   }

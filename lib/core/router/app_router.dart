@@ -111,13 +111,13 @@ class AppRouter {
       GoRoute(
         path: '/teacher/grade-entry',
         builder: (context, state) => TeacherGradeEntryScreen(
-          initialCourse: state.queryParameters['course'] ?? 'Advanced Java OOP',
+          initialCourse: state.uri.queryParameters['course'] ?? 'Advanced Java OOP',
         ),
       ),
       GoRoute(
         path: '/teacher/student-scan',
         builder: (context, state) {
-          final studentId = state.queryParameters['id'];
+          final studentId = state.uri.queryParameters['id'];
           final student = StudentIdCardRepository.findById(studentId ?? '') ?? StudentIdCardRepository.sampleCards.first;
           return TeacherStudentIdScanScreen(student: student);
         },

@@ -52,7 +52,7 @@ class PrincipalAssistantDashboard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.orangeAccent.withOpacity(0.2),
+                          color: Colors.orangeAccent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text('3 New', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
@@ -92,15 +92,18 @@ class PrincipalAssistantDashboard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(type, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600)),
-              Text('$name • $details', style: TextStyle(color: AppTheme.pureWhite.withOpacity(0.6), fontSize: 12)),
-            ],
-          ),
-          const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(type, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600)),
+                  Text('$name • $details', style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
+          ],
+        ),
       ),
     );
   }
@@ -113,7 +116,7 @@ class PrincipalAssistantDashboard extends StatelessWidget {
         children: [
           Text(count, style: TextStyle(color: isCritical ? Colors.redAccent : AppTheme.mintGlow, fontSize: 32, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(title, style: TextStyle(color: AppTheme.pureWhite.withOpacity(0.8), fontSize: 14)),
+          Text(title, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.8), fontSize: 14)),
         ],
       ),
     );

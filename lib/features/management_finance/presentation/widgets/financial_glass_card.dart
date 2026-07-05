@@ -63,7 +63,7 @@ class FinancialGlassCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Remaining: \$${financeRecord.remainingBalance.toStringAsFixed(0)}',
-                  style: TextStyle(color: AppTheme.pureWhite.withOpacity(0.7), fontSize: 14),
+                  style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7), fontSize: 14),
                 ),
               ],
             ),
@@ -76,7 +76,7 @@ class FinancialGlassCard extends StatelessWidget {
                 value: !financeRecord.isBlocked, // True means active, False means blocked
                 activeThumbColor: AppTheme.mintGlow,
                 inactiveThumbColor: Colors.redAccent,
-                inactiveTrackColor: Colors.redAccent.withOpacity(0.3),
+                inactiveTrackColor: Colors.redAccent.withValues(alpha: 0.3),
                 onChanged: (val) => onToggleBlock(),
               ),
               Text(

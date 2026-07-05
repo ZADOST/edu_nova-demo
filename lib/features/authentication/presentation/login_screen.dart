@@ -35,11 +35,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     _colorAnimation1 = ColorTween(
       begin: AppTheme.darkCharcoal,
-      end: AppTheme.deepTeal.withOpacity(0.5),
+      end: AppTheme.deepTeal.withValues(alpha: 0.5),
     ).animate(_bgController);
 
     _colorAnimation2 = ColorTween(
-      begin: AppTheme.deepTeal.withOpacity(0.3),
+      begin: AppTheme.deepTeal.withValues(alpha: 0.3),
       end: AppTheme.darkCharcoal,
     ).animate(_bgController);
   }
@@ -183,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     'Powered by ZAS TECH',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.mintGlow.withOpacity(0.8),
+                      color: AppTheme.mintGlow.withValues(alpha: 0.8),
                       fontSize: 14,
                       letterSpacing: 1,
                     ),

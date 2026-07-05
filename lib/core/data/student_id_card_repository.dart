@@ -14,4 +14,17 @@ class StudentIdCardRepository {
       return null;
     }
   }
+
+  static String _nextId() {
+    final ids = sampleCards.map((c) => int.tryParse(c.id)).whereType<int>();
+    final maxId = ids.isEmpty ? 1000 : ids.reduce((a, b) => a > b ? a : b);
+    return (maxId + 1).toString();
+  }
+
+  static StudentIdCard addStudent({required String name, required String department, required String course, required String batch}) {
+    final id = _nextId();
+    final student = StudentIdCard(id: id, name: name, department: department, course: course, batch: batch);
+    sampleCards.add(student);
+    return student;
+  }
 }

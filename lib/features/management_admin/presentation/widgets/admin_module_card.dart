@@ -29,7 +29,7 @@ class AdminModuleCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.mintGlow.withOpacity(0.2),
+                color: AppTheme.mintGlow.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: AppTheme.mintGlow, size: 28),
@@ -47,7 +47,7 @@ class AdminModuleCard extends StatelessWidget {
             Text(
               subtitle,
               style: TextStyle(
-                color: AppTheme.pureWhite.withOpacity(0.6),
+                color: AppTheme.pureWhite.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
             ),

@@ -17,7 +17,7 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   final TeacherRepository _repository = TeacherRepository();
-  final List<StudentIdCard> _studentIdCards = StudentIdCardRepository.sampleCards;
+  final _studentIdCards = StudentIdCardRepository.sampleCards;
   List<SchoolClass> _todayClasses = [];
   List<StudentGrade> _gradeEntries = [];
   bool _isLoading = true;
