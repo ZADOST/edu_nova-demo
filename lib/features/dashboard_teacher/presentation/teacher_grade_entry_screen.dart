@@ -18,7 +18,7 @@ class TeacherGradeEntryScreen extends StatefulWidget {
 
 class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
   final TeacherRepository _repository = TeacherRepository();
-  // removed unused _todayClasses field
+  
   final List<StudentGrade> _students = [];
   bool _isLoading = true;
   bool _isSaving = false;
@@ -36,7 +36,6 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
     try {
       await _repository.fetchTodayClasses();
       setState(() {
-        // classes fetched (not stored here) — update loading state
         _isLoading = false;
       });
     } catch (_) {
@@ -44,12 +43,16 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
     }
   }
 
-  void _loadStudentsForCourse(String course) {
-    final saved = _repository.fetchSavedGradesForCourse(course);
+  // FIX: Converted to properly await the local device storage
+  Future<void> _loadStudentsForCourse(String course) async {
+    final saved = await _repository.fetchSavedGradesForCourse(course);
+    
     if (saved.isNotEmpty) {
-      _students
-        ..clear()
-        ..addAll(saved);
+      setState(() {
+        _students
+          ..clear()
+          ..addAll(saved);
+      });
       return;
     }
 
@@ -58,9 +61,12 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
       StudentGrade(name: 'Shilan Azad', grade: 'B+'),
       StudentGrade(name: 'Rebwar Ali', grade: 'A-'),
     ];
-    _students
-      ..clear()
-      ..addAll(mockStudents);
+
+    setState(() {
+      _students
+        ..clear()
+        ..addAll(mockStudents);
+    });
   }
 
   void _showMessage(String message) {
@@ -109,8 +115,11 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
       _selectedCourse,
       _students.map((student) => StudentGrade(name: student.name, grade: student.grade)).toList(),
     );
-    setState(() => _isSaving = false);
-    _showMessage('Saved grades for $_selectedCourse');
+    
+    if (mounted) {
+      setState(() => _isSaving = false);
+      _showMessage('Saved grades securely to local device for $_selectedCourse');
+    }
   }
 
   @override
@@ -155,8 +164,8 @@ class _TeacherGradeEntryScreenState extends State<TeacherGradeEntryScreen> {
                               if (value == null) return;
                               setState(() {
                                 _selectedCourse = value;
-                                _loadStudentsForCourse(value);
                               });
+                              _loadStudentsForCourse(value);
                               _showMessage('Selected $value');
                             },
                           ),

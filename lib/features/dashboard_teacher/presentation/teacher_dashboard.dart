@@ -18,8 +18,10 @@ class TeacherDashboard extends StatefulWidget {
 class _TeacherDashboardState extends State<TeacherDashboard> {
   final TeacherRepository _repository = TeacherRepository();
   final _studentIdCards = StudentIdCardRepository.sampleCards;
+  
   List<SchoolClass> _todayClasses = [];
   List<StudentGrade> _gradeEntries = [];
+  
   bool _isLoading = true;
   int _selectedIndex = 0;
   String _selectedCourse = 'Advanced Java OOP';
@@ -34,8 +36,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     _loadGradesForCourse(_selectedCourse);
   }
 
+  // FIX: Converted to properly await the new asynchronous SharedPreferences fetch
   Future<void> _loadGradesForCourse(String course) async {
-    final savedGrades = _repository.fetchSavedGradesForCourse(course);
+    final savedGrades = await _repository.fetchSavedGradesForCourse(course);
+    
     setState(() {
       _gradeEntries = savedGrades.isNotEmpty
           ? savedGrades
@@ -196,7 +200,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   Future<void> _submitGrades() async {
     await _repository.saveGrades(_selectedCourse, _gradeEntries);
-    _showPlaceholderMessage('Grades saved for $_selectedCourse.');
+    _showPlaceholderMessage('Grades saved securely to device for $_selectedCourse.');
   }
 
   Widget _buildSectionTopBar(String title) {
