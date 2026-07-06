@@ -404,11 +404,19 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         child: const Text('SCAN STUDENT ID CARD', style: TextStyle(color: AppTheme.darkCharcoal)),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () => context.push('/teacher/student-qr-scanner'),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepTeal),
-                        child: const Text('OPEN CAMERA QR SCANNER'),
-                      ),
+                      ElevatedButton.icon(
+                         onPressed: () async {
+                          // Await the scanner screen so the dashboard refreshes when you return
+                          await context.push('/teacher/student-qr-scanner');
+                          _loadData(); 
+                        },
+                        icon: const Icon(Icons.videocam, color: AppTheme.pureWhite),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.deepTeal,
+                          padding: const EdgeInsets.symmetric(vertical: 16)
+                        ),
+                        label: const Text('START LIVE SCANNER', style: TextStyle(color: AppTheme.pureWhite)),
+                       ),
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.all(16),

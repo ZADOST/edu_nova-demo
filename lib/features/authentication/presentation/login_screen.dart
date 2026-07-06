@@ -1,11 +1,9 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../../core/db/local_auth_db.dart';
-import '../../../core/network/api_client.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -53,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
@@ -63,50 +61,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     setState(() => _isLoading = true);
 
-    try {
-      final response = await ApiClient().post(
-        'auth/login.php',
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
+    // Simulate network delay for a realistic UI feel during the demo
+    await Future.delayed(const Duration(milliseconds: 1500));
 
-      final responseData = response.data;
+    // OFFLINE DEMO LOGIC: Assign role based on typed email keyword
+    String role = 'student'; // Default fallback
+    if (email.contains('teacher')) role = 'teacher';
+    else if (email.contains('parent')) role = 'parent';
+    else if (email.contains('principal') || email.contains('admin')) role = 'principal';
+    else if (email.contains('assistant')) role = 'assistant_principal';
+    else if (email.contains('hr')) role = 'hr';
+    else if (email.contains('accounting') || email.contains('finance')) role = 'accounting';
+    else if (email.contains('alumni')) role = 'alumni';
 
-      if (responseData != null && responseData['status'] == 'success') {
-        final userData = responseData['data'];
-        final token = userData['access_token'] as String?;
-        final role = userData['role_identifier'] as String?;
-        final userId = userData['id'] as String?;
+    // Save dummy offline session securely to local device
+    final prefs = await SharedPreferences.getInstance();
+    final authDb = LocalAuthDb(prefs);
 
-        if (token == null || role == null || userId == null) {
-          _showMessage('Invalid server response. Please try again.');
-        } else {
-          final prefs = await SharedPreferences.getInstance();
-          final authDb = LocalAuthDb(prefs);
+    await authDb.saveSession(
+      token: 'offline_demo_token_123', 
+      role: role, 
+      userId: 'U_001'
+    );
 
-          await authDb.saveSession(token: token, role: role, userId: userId);
-
-          if (mounted) {
-            final route = _routeForRole(role);
-            context.go(route);
-          }
-        }
-      } else {
-        final message = responseData?['message'] ?? 'Login failed. Please try again.';
-        _showMessage(message);
-      }
-    } on DioException catch (error) {
-      final message = error.response?.data?['message'] ??
-          'Unable to connect to the server. Please check your network and try again.';
-      _showMessage(message);
-    } catch (_) {
-      _showMessage('An unexpected error occurred. Please try again.');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (mounted) {
+      setState(() => _isLoading = false);
+      final route = _routeForRole(role);
+      context.go(route);
     }
   }
 
@@ -167,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo/Title Area
                   const Icon(Icons.school_rounded, size: 64, color: AppTheme.mintGlow),
                   const SizedBox(height: 16),
                   const Text(
@@ -191,8 +171,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(height: 40),
-
-                  // Email Field
                   TextField(
                     controller: _emailController,
                     style: const TextStyle(color: AppTheme.pureWhite),
@@ -202,8 +180,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Password Field
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
@@ -214,8 +190,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Login Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     child: _isLoading
