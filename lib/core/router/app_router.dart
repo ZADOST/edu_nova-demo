@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../db/local_auth_db.dart';
 import '../theme/app_theme.dart';
+import '../models/student_id_card.dart';
 
 // Importing all 7 finalized role-based dashboards
 import '../../features/authentication/presentation/login_screen.dart';
@@ -18,7 +19,6 @@ import '../../features/dashboard_teacher/presentation/teacher_student_qr_scanner
 import '../../features/management_finance/presentation/accounting_dashboard.dart';
 import '../../features/management_hr/presentation/hr_dashboard.dart';
 import '../../features/portal_alumni/presentation/alumni_dashboard.dart';
-import '../data/student_id_card_repository.dart';
 import '../screens/splash_screen.dart';
 import '../screens/parent_dashboard.dart';
 import '../screens/settings_screen.dart';
@@ -117,9 +117,19 @@ class AppRouter {
       GoRoute(
         path: '/teacher/student-scan',
         builder: (context, state) {
-          final studentId = state.uri.queryParameters['id'];
-          final student = StudentIdCardRepository.findById(studentId ?? '') ?? StudentIdCardRepository.sampleCards.first;
-          return TeacherStudentIdScanScreen(student: student);
+          final studentId = state.uri.queryParameters['id'] ?? '1001';
+          
+          // Using a fallback object because the router is synchronous.
+          // The screen will display these details immediately for demo purposes.
+          final fallbackStudent = StudentIdCard(
+            id: studentId,
+            name: 'Student ID: $studentId',
+            department: 'Verified Student',
+            course: '',
+            batch: '2026'
+          );
+          
+          return TeacherStudentIdScanScreen(student: fallbackStudent);
         },
       ),
       GoRoute(

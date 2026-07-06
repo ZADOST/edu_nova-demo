@@ -5,8 +5,9 @@ import '../../data/alumni_repository.dart';
 
 class EventGlassCard extends StatelessWidget {
   final AlumniEvent event;
+  final VoidCallback onRsvpTap;
 
-  const EventGlassCard({super.key, required this.event});
+  const EventGlassCard({super.key, required this.event, required this.onRsvpTap});
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +31,22 @@ class EventGlassCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.mintGlow.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'RSVP',
-                  style: TextStyle(color: AppTheme.mintGlow, fontSize: 12, fontWeight: FontWeight.bold),
+              GestureDetector(
+                onTap: onRsvpTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: event.isRsvped ? AppTheme.mintGlow : AppTheme.mintGlow.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    event.isRsvped ? 'RSVP\'d' : 'RSVP',
+                    style: TextStyle(
+                      color: event.isRsvped ? AppTheme.darkCharcoal : AppTheme.mintGlow, 
+                      fontSize: 12, 
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
                 ),
               ),
             ],

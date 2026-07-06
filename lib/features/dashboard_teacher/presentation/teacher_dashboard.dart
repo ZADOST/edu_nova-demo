@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
+import '../../../core/models/student_id_card.dart';
 import '../../../core/data/student_id_card_repository.dart';
 import '../data/teacher_repository.dart';
 
@@ -17,8 +18,9 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   final TeacherRepository _repository = TeacherRepository();
-  final _studentIdCards = StudentIdCardRepository.sampleCards;
+  final StudentIdCardRepository _studentRepo = StudentIdCardRepository();
   
+  List<StudentIdCard> _studentIdCards = [];
   List<SchoolClass> _todayClasses = [];
   List<StudentGrade> _gradeEntries = [];
   
@@ -31,12 +33,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   @override
   void initState() {
     super.initState();
-    _selectedStudentId = _studentIdCards.isNotEmpty ? _studentIdCards.first.id : null;
     _loadData();
-    _loadGradesForCourse(_selectedCourse);
   }
 
-  // FIX: Converted to properly await the new asynchronous SharedPreferences fetch
   Future<void> _loadGradesForCourse(String course) async {
     final savedGrades = await _repository.fetchSavedGradesForCourse(course);
     
@@ -53,15 +52,27 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   Future<void> _loadData() async {
     try {
+      // Fetch both classes and students simultaneously from local storage
       final classes = await _repository.fetchTodayClasses();
+      final students = await _studentRepo.fetchAllStudents();
+      
       setState(() {
         _todayClasses = classes;
+        _studentIdCards = students;
+        
+        if (_studentIdCards.isNotEmpty) {
+          _selectedStudentId = _studentIdCards.first.id;
+        }
+
         if (_todayClasses.isNotEmpty && !_todayClasses.any((c) => c.className == _selectedCourse)) {
           _selectedCourse = _todayClasses.first.className;
-          _loadGradesForCourse(_selectedCourse);
         }
+        
         _isLoading = false;
       });
+
+      // Load grades for the initially selected course
+      await _loadGradesForCourse(_selectedCourse);
     } catch (e) {
       setState(() => _isLoading = false);
     }

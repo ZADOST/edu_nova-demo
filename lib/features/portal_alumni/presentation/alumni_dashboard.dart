@@ -22,7 +22,9 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
   int _selectedIndex = 0;
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
@@ -34,13 +36,32 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
   Future<void> _loadEvents() async {
     try {
       final events = await _repository.fetchUpcomingEvents();
-      setState(() {
-        _events = events;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _events = events;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  Future<void> _toggleRsvp(int index) async {
+    final event = _events[index];
+    await _repository.toggleRsvp(event.id);
+    
+    setState(() {
+      _events[index].isRsvped = !_events[index].isRsvped;
+    });
+
+    _showMessage(
+      _events[index].isRsvped 
+      ? 'RSVP confirmed for ${event.title}.' 
+      : 'RSVP cancelled for ${event.title}.'
+    );
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -57,7 +78,6 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator(color: AppTheme.mintGlow))
           : _buildCurrentView(),
-
       extendBody: true,
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(24),
@@ -100,9 +120,6 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
     }
   }
 
-  // ==========================================
-  // TAB 0: ALUMNI ID CARD VIEW
-  // ==========================================
   Widget _buildIdCardView() {
     return CustomScrollView(
       slivers: [
@@ -153,9 +170,6 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
     );
   }
 
-  // ==========================================
-  // TAB 1: EVENTS VIEW
-  // ==========================================
   Widget _buildEventsView() {
     return SafeArea(
       child: ListView(
@@ -163,16 +177,18 @@ class _AlumniDashboardState extends State<AlumniDashboard> {
         children: [
           const Text('Upcoming Events', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
-          ..._events.map((event) => EventGlassCard(event: event)),
+          ...List.generate(_events.length, (index) {
+            return EventGlassCard(
+              event: _events[index],
+              onRsvpTap: () => _toggleRsvp(index),
+            );
+          }),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  // ==========================================
-  // TAB 2: SUPPORT VIEW
-  // ==========================================
   Widget _buildSupportView() {
     return SafeArea(
       child: ListView(

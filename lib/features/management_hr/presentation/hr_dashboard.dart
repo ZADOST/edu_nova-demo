@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
+import '../data/hr_repository.dart'; // New import
 
 class HRDashboard extends StatefulWidget {
   const HRDashboard({super.key});
@@ -15,9 +16,83 @@ class HRDashboard extends StatefulWidget {
 
 class _HRDashboardState extends State<HRDashboard> {
   int _selectedIndex = 0;
+  bool _isLoading = true;
+  List<StaffMember> _staffDirectory = [];
+  final HrRepository _repository = HrRepository();
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final staff = await _repository.fetchStaff();
+    if (mounted) {
+      setState(() {
+        _staffDirectory = staff;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _openOnboardingDialog() {
+    final nameCtrl = TextEditingController();
+    final deptCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCharcoal,
+        title: const Text('Onboard New Staff', style: TextStyle(color: AppTheme.pureWhite)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: AppTheme.pureWhite),
+              decoration: const InputDecoration(labelText: 'Full Name', labelStyle: TextStyle(color: AppTheme.mintGlow)),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: deptCtrl,
+              style: const TextStyle(color: AppTheme.pureWhite),
+              decoration: const InputDecoration(labelText: 'Department', labelStyle: TextStyle(color: AppTheme.mintGlow)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('CANCEL', style: TextStyle(color: AppTheme.mintGlow)),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (nameCtrl.text.isEmpty || deptCtrl.text.isEmpty) return;
+              
+              final newMember = StaffMember(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                name: nameCtrl.text.trim(),
+                department: deptCtrl.text.trim(),
+                status: 'Active',
+              );
+
+              // Show loading state securely
+              Navigator.of(context).pop();
+              setState(() => _isLoading = true);
+              
+              await _repository.addStaffMember(newMember);
+              await _loadData(); // Refresh UI with new data
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${newMember.name} onboarded successfully.')));
+              }
+            },
+            child: const Text('ONBOARD', style: TextStyle(color: AppTheme.mintGlow)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -31,7 +106,9 @@ class _HRDashboardState extends State<HRDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.darkCharcoal,
-      body: _buildCurrentView(),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.mintGlow))
+          : _buildCurrentView(),
       
       extendBody: true,
       bottomNavigationBar: Container(
@@ -57,11 +134,7 @@ class _HRDashboardState extends State<HRDashboard> {
               selectedItemColor: AppTheme.mintGlow,
               unselectedItemColor: AppTheme.pureWhite.withValues(alpha: 0.5),
               currentIndex: _selectedIndex,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
+              onTap: (index) => setState(() => _selectedIndex = index),
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Overview'),
                 BottomNavigationBarItem(icon: Icon(Icons.people_alt), label: 'Directory'),
@@ -76,21 +149,17 @@ class _HRDashboardState extends State<HRDashboard> {
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
-      case 0:
-        return _buildOverviewView();
-      case 1:
-        return _buildDirectoryView();
-      case 2:
-        return _buildRequestsView();
-      default:
-        return _buildOverviewView();
+      case 0: return _buildOverviewView();
+      case 1: return _buildDirectoryView();
+      case 2: return _buildRequestsView();
+      default: return _buildOverviewView();
     }
   }
 
-  // ==========================================
-  // TAB 0: OVERVIEW VIEW
-  // ==========================================
   Widget _buildOverviewView() {
+    final activeCount = _staffDirectory.where((s) => s.status == 'Active').length;
+    final leaveCount = _staffDirectory.where((s) => s.status.contains('Leave')).length;
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -125,9 +194,9 @@ class _HRDashboardState extends State<HRDashboard> {
             delegate: SliverChildListDelegate([
               Row(
                 children: [
-                  Expanded(child: _buildStatCard('Active Staff', '124', Icons.people)),
+                  Expanded(child: _buildStatCard('Active Staff', '$activeCount', Icons.people)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildStatCard('On Leave', '3', Icons.time_to_leave)),
+                  Expanded(child: _buildStatCard('On Leave', '$leaveCount', Icons.time_to_leave)),
                 ],
               ),
               const SizedBox(height: 32),
@@ -143,14 +212,14 @@ class _HRDashboardState extends State<HRDashboard> {
                       leading: const Icon(Icons.person_add, color: AppTheme.pureWhite),
                       title: const Text('Onboard New Teacher', style: TextStyle(color: AppTheme.pureWhite)),
                       trailing: const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-                      onTap: () => _showMessage('Starting onboarding workflow.'),
+                      onTap: _openOnboardingDialog,
                     ),
                     const Divider(color: Colors.white24),
                     ListTile(
                       leading: const Icon(Icons.assessment, color: AppTheme.pureWhite),
                       title: const Text('Performance Reviews', style: TextStyle(color: AppTheme.pureWhite)),
                       trailing: const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
-                      onTap: () => _showMessage('Opening performance review queue.'),
+                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening performance review queue.'))),
                     ),
                   ],
                 ),
@@ -163,9 +232,6 @@ class _HRDashboardState extends State<HRDashboard> {
     );
   }
 
-  // ==========================================
-  // TAB 1: DIRECTORY VIEW
-  // ==========================================
   Widget _buildDirectoryView() {
     return SafeArea(
       child: ListView(
@@ -173,19 +239,16 @@ class _HRDashboardState extends State<HRDashboard> {
         children: [
           const Text('Staff Directory', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
-          _buildStaffCard('Dr. Alan Turing', 'Computer Science', 'Active'),
-          _buildStaffCard('Mr. Akar Shwan', 'IT Support', 'Active'),
-          _buildStaffCard('Ms. Tara Ahmed', 'Accounting', 'On Leave', isWarning: true),
+          ..._staffDirectory.map((staff) => _buildStaffCard(staff.name, staff.department, staff.status, isWarning: staff.isWarning)),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  // ==========================================
-  // TAB 2: REQUESTS VIEW
-  // ==========================================
   Widget _buildRequestsView() {
+    final pendingRequests = _staffDirectory.where((s) => s.status.contains('Pending')).toList();
+    
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24.0),
@@ -199,7 +262,9 @@ class _HRDashboardState extends State<HRDashboard> {
               children: [
                 const Text('Pending Approvals', style: TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                _buildStaffCard('Prof. Bakhtyar Ali', 'Literature', 'Review Pending', isWarning: true),
+                if (pendingRequests.isEmpty)
+                  const Text('No pending requests.', style: TextStyle(color: AppTheme.pureWhite)),
+                ...pendingRequests.map((staff) => _buildStaffCard(staff.name, staff.department, staff.status, isWarning: staff.isWarning)),
               ],
             ),
           ),
