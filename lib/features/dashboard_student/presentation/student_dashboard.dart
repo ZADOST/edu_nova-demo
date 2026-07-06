@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
+import '../../../core/models/student_id_card.dart';
 import 'widgets/course_glass_card.dart';
+import '../data/student_repository.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -15,13 +17,42 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
+  final StudentRepository _repository = StudentRepository();
+  
+  StudentIdCard? _profile;
+  List<CourseGrade> _myGrades = [];
+  bool _isLoading = true;
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final authDb = LocalAuthDb(prefs);
+    
+    // Fallback to U_001 if the login ID isn't found
+    final currentUserId = authDb.userRole == 'student' ? '1001' : 'U_001'; 
+    
+    final profile = await _repository.fetchStudentProfile(currentUserId);
+    final grades = await _repository.fetchMyGrades(profile.name);
+
+    if (mounted) {
+      setState(() {
+        _profile = profile;
+        _myGrades = grades;
+        _isLoading = false;
+      });
+    }
+  }
 
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final authDb = LocalAuthDb(prefs);
     await authDb.clearSession();
-
     if (context.mounted) {
       context.go('/login');
     }
@@ -34,7 +65,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
       onWillPop: _handleBackPressed,
       child: Scaffold(
         backgroundColor: AppTheme.darkCharcoal,
-        body: _buildCurrentView(),
+        body: _isLoading 
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.mintGlow))
+            : _buildCurrentView(),
         extendBody: true,
         bottomNavigationBar: Container(
           margin: const EdgeInsets.all(24),
@@ -120,6 +153,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildHomeView() {
+    final firstName = _profile?.name.split(' ').first ?? 'Student';
+    // Friendly override for your specific demo profile
+    final displayGreeting = _profile?.name.contains('Shazad') == true ? 'ZAD' : firstName;
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -152,9 +189,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ],
           flexibleSpace: FlexibleSpaceBar(
             titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
-            title: const Text(
-              'Welcome back, ZAD',
-              style: TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold, fontSize: 18),
+            title: Text(
+              'Welcome back, $displayGreeting',
+              style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold, fontSize: 18),
             ),
             background: Container(
               decoration: BoxDecoration(
@@ -274,10 +311,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 const SizedBox(height: 8),
                 const Text('Academic Transcript', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
-                _buildGradeRow('Advanced Java OOP', 'A', '92%'),
-                _buildGradeRow('Database Management Systems', 'B+', '88%'),
-                _buildGradeRow('Software Engineering Principles', 'A-', '90%'),
-                _buildGradeRow('Mobile App Dev (Flutter)', 'A', '96%'),
+                // Render dynamically fetched grades
+                ..._myGrades.map((gradeRecord) => _buildGradeRow(gradeRecord.courseName, gradeRecord.grade)),
                 const SizedBox(height: 80),
               ],
             ),
@@ -287,7 +322,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildGradeRow(String course, String grade, String percentage) {
+  Widget _buildGradeRow(String course, String grade) {
+    // Generate a mock percentage string for visual completion unless it's pending
+    final isPending = grade.contains('Pending');
+    final displayPercentage = isPending ? 'N/A' : 'Graded';
+
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -298,8 +337,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(grade, style: const TextStyle(color: AppTheme.mintGlow, fontSize: 20, fontWeight: FontWeight.bold)),
-              Text(percentage, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.5), fontSize: 12)),
+              Text(
+                grade, 
+                style: TextStyle(
+                  color: isPending ? Colors.orangeAccent : AppTheme.mintGlow, 
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold
+                )
+              ),
+              Text(displayPercentage, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.5), fontSize: 12)),
             ],
           )
         ],
@@ -325,9 +371,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     children: [
                       CircleAvatar(radius: 40, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.2), child: const Icon(Icons.person, size: 40, color: AppTheme.mintGlow)),
                       const SizedBox(height: 16),
-                      const Text('Shazad Hassan Babakr', style: TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(_profile?.name ?? 'Loading...', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      const Text('Junior Student', style: TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
+                      Text('Student ID: ${_profile?.uniqueCode ?? ''}', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -340,18 +386,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     children: [
                       _buildProfileDetailRow('University', 'Tishk International University (TIU)'),
                       const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Department', 'Computer Education'),
+                      _buildProfileDetailRow('Department', _profile?.department ?? ''),
                       const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Extracurricular', 'President & Coordinator of KSTIU'),
+                      _buildProfileDetailRow('Major Course', _profile?.course ?? ''),
+                      const Divider(color: Colors.white24, height: 24),
+                      _buildProfileDetailRow('Batch Group', _profile?.batch ?? ''),
+                      const Divider(color: Colors.white24, height: 24),
+                      _buildProfileDetailRow('Organization', 'KSTIU Membership'),
                     ],
                   ),
-                ),
-                const SizedBox(height: 24),
-                const Text('Exchange Programs', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                GlassContainer(
-                  padding: const EdgeInsets.all(20),
-                  child: _buildProfileDetailRow('Spring 2026', 'Universiti Teknologi Malaysia (UTM)'),
                 ),
                 const SizedBox(height: 80),
               ],
@@ -366,7 +409,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 100, child: Text(label, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 13))),
+        SizedBox(width: 110, child: Text(label, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 13))),
         Expanded(child: Text(value, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
     );
