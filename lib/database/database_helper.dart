@@ -29,7 +29,6 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // 1. Courses (Subjects like Mathematics, Biology)
     await db.execute('''
       CREATE TABLE courses(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +38,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. Students
     await db.execute('''
       CREATE TABLE students(
         student_id TEXT PRIMARY KEY,
@@ -51,7 +49,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. Teachers/Staff
     await db.execute('''
       CREATE TABLE teachers(
         teacher_id TEXT PRIMARY KEY,
@@ -61,7 +58,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 4. Enrollments (Students to Courses)
     await db.execute('''
       CREATE TABLE enrollments(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +68,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 5. Grades
     await db.execute('''
       CREATE TABLE grades(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +79,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 6. Attendance Sessions
     await db.execute('''
       CREATE TABLE attendance_sessions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,7 +97,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 7. Attendance Records
     await db.execute('''
       CREATE TABLE attendance_records(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,7 +116,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 8. Permission Logs
     await db.execute('''
       CREATE TABLE permission_logs(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,6 +130,21 @@ class DatabaseHelper {
         FOREIGN KEY (session_id) REFERENCES attendance_sessions (id) ON DELETE CASCADE
       )
     ''');
+
+    // NEW: Administrative Request Queue
+    await db.execute('''
+      CREATE TABLE admin_requests(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        requested_by TEXT,
+        action_type TEXT,
+        target_student_id TEXT,
+        target_course_id INTEGER,
+        proposed_value TEXT,
+        reason TEXT,
+        status TEXT DEFAULT 'Pending',
+        timestamp TEXT
+      )
+    ''');
   }
 
   // ================= SUBJECT & TEACHER METHODS =================
@@ -145,10 +152,7 @@ class DatabaseHelper {
   Future<int> addCourse(String courseName, String courseCode) async {
     Database db = await database;
     try {
-      return await db.insert('courses', {
-        'course_name': courseName,
-        'course_code': courseCode.toUpperCase(),
-      });
+      return await db.insert('courses', {'course_name': courseName, 'course_code': courseCode.toUpperCase()});
     } catch (e) {
       return -1;
     }
@@ -162,10 +166,7 @@ class DatabaseHelper {
 
   Future<void> updateCourse(int courseId, String courseName, String courseCode) async {
     Database db = await database;
-    await db.update('courses', 
-      {'course_name': courseName, 'course_code': courseCode.toUpperCase()},
-      where: 'id = ?', whereArgs: [courseId]
-    );
+    await db.update('courses', {'course_name': courseName, 'course_code': courseCode.toUpperCase()}, where: 'id = ?', whereArgs: [courseId]);
   }
 
   Future<void> deleteCourse(int courseId) async {
@@ -179,7 +180,6 @@ class DatabaseHelper {
     return results.isNotEmpty ? Course.fromMap(results.first) : null;
   }
 
-  // Teachers
   Future<void> addTeacher(String id, String name, String department) async {
     Database db = await database;
     await db.insert('teachers', {'teacher_id': id, 'full_name': name, 'department': department, 'email': '$id@school.edu'}, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -223,9 +223,7 @@ class DatabaseHelper {
     Database db = await database;
     try {
       await db.insert('enrollments', {'student_id': studentId, 'course_id': courseId});
-    } catch (e) {
-      // Ignore duplicate
-    }
+    } catch (e) {}
   }
 
   Future<List<Student>> getStudentsInCourse(int courseId) async {
@@ -239,7 +237,6 @@ class DatabaseHelper {
     return result.map((map) => Student.fromMap(map)).toList();
   }
 
-  // Grades
   Future<void> updateGrade(String studentId, int courseId, String gradeValue) async {
     Database db = await database;
     var existing = await db.query('grades', where: 'student_id = ? AND course_id = ?', whereArgs: [studentId, courseId]);
@@ -276,7 +273,6 @@ class DatabaseHelper {
     }
   }
 
-  // Calculates a student's latency (attendance percentage) across all recorded sessions for a specific course
   Future<double> getStudentLatency(String studentId, int courseId) async {
     Database db = await database;
     var sessions = await db.query('attendance_sessions', where: 'course_id = ?', whereArgs: [courseId]);
@@ -292,13 +288,49 @@ class DatabaseHelper {
 
       var records = await db.query('attendance_records', where: 'session_id = ? AND student_id = ?', whereArgs: [sessionId, studentId]);
       for (var r in records) {
-        if (r['status'] == 'present' || r['status'] == 'permissionEntireHour') {
-          attendedHours++;
-        } else if (r['status'] == 'permissionTimed' && r['scanned_return_time'] != null) {
+        if (r['status'] == 'present' || r['status'] == 'permissionEntireHour' || (r['status'] == 'permissionTimed' && r['scanned_return_time'] != null)) {
           attendedHours++;
         }
       }
     }
     return totalHoursScanned == 0 ? 100.0 : (attendedHours / totalHoursScanned) * 100;
+  }
+
+  // ================= ADMIN REQUEST QUEUE =================
+
+  Future<void> submitAdminRequest({
+    required String requestedBy,
+    required String actionType,
+    required String targetStudentId,
+    required int targetCourseId,
+    required String proposedValue,
+    required String reason,
+  }) async {
+    Database db = await database;
+    await db.insert('admin_requests', {
+      'requested_by': requestedBy,
+      'action_type': actionType,
+      'target_student_id': targetStudentId,
+      'target_course_id': targetCourseId,
+      'proposed_value': proposedValue,
+      'reason': reason,
+      'status': 'Pending',
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getRequestsBySender(String senderRole) async {
+    Database db = await database;
+    return await db.query('admin_requests', where: 'requested_by = ?', whereArgs: [senderRole], orderBy: 'timestamp DESC');
+  }
+
+  Future<List<Map<String, dynamic>>> getAllPendingRequests() async {
+    Database db = await database;
+    return await db.query('admin_requests', where: 'status = ?', whereArgs: ['Pending'], orderBy: 'timestamp ASC');
+  }
+
+  Future<void> updateRequestStatus(int requestId, String newStatus) async {
+    Database db = await database;
+    await db.update('admin_requests', {'status': newStatus}, where: 'id = ?', whereArgs: [requestId]);
   }
 }
