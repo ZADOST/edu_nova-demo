@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
 
-// SQLite Database & Models (From abduattendancemanager)
+// SQLite Database & Models
 import '../../../database/database_helper.dart';
 import '../../../models/course.dart';
 import '../../../models/student.dart';
@@ -16,7 +16,6 @@ import '../../../models/student.dart';
 // Live Functional Screens
 import '../../../screens/live_attendance_page.dart';
 import '../../../screens/attendance_records_page.dart';
-import '../../../screens/manage_students_page.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({super.key});
@@ -31,6 +30,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   List<Course> _courses = [];
   Course? _selectedCourse;
   List<Student> _students = [];
+  Map<String, String> _studentGrades = {};
   
   bool _isLoading = true;
   int _selectedIndex = 0;
@@ -44,38 +44,47 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Fetch real courses from SQLite
       final courses = await _dbHelper.getCourses();
       
-      setState(() {
-        _courses = courses;
-        if (_courses.isNotEmpty && _selectedCourse == null) {
-          _selectedCourse = _courses.first;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _courses = courses;
+          if (_courses.isNotEmpty && _selectedCourse == null) {
+            _selectedCourse = _courses.first;
+          }
+        });
+      }
 
-      // 2. Fetch real students for the selected course
       if (_selectedCourse != null) {
         await _loadStudentsForCourse(_selectedCourse!.id!);
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint("DB Load Error: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _loadStudentsForCourse(int courseId) async {
     try {
       final students = await _dbHelper.getStudentsInCourse(courseId);
-      setState(() {
-        _students = students;
-        _isLoading = false;
-      });
+      
+      Map<String, String> grades = {};
+      for (var student in students) {
+        grades[student.studentId] = await _dbHelper.getStudentGrade(student.studentId, courseId);
+      }
+
+      if (mounted) {
+        setState(() {
+          _students = students;
+          _studentGrades = grades;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint("Student Load Error: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -140,14 +149,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   onPressed: () async {
                     Navigator.pop(context);
                     
-                    // CRITICAL DB LOGIC: Create the session in SQLite
                     int sessionId = await _dbHelper.createAttendanceSession(
                       _selectedCourse!.id!,
                       selectedHours,
                     );
                     
                     if (mounted) {
-                      // Navigate to the live functional camera scanner
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -157,7 +164,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             totalHours: selectedHours,
                           ),
                         ),
-                      ).then((_) => _loadData()); // Refresh data when returning
+                      ).then((_) => _loadData());
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow),
@@ -168,6 +175,46 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           },
         );
       },
+    );
+  }
+
+  void _openGradeEditor(Student student) {
+    String currentGrade = _studentGrades[student.studentId] ?? '';
+    final controller = TextEditingController(text: currentGrade == 'Pending...' ? '' : currentGrade);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCharcoal,
+        title: Text('Edit Grade: ${student.firstName}', style: const TextStyle(color: AppTheme.pureWhite)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: AppTheme.pureWhite),
+          decoration: const InputDecoration(
+            labelText: 'Academic Grade (e.g. A, 95)',
+            labelStyle: TextStyle(color: AppTheme.mintGlow),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.redAccent)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newGrade = controller.text.trim();
+              if (newGrade.isNotEmpty) {
+                Navigator.of(context).pop();
+                await _dbHelper.updateGrade(student.studentId, _selectedCourse!.id!, newGrade);
+                _loadStudentsForCourse(_selectedCourse!.id!);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Grade updated for ${student.firstName}')));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow),
+            child: const Text('SAVE', style: TextStyle(color: AppTheme.darkCharcoal)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -215,7 +262,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
                   BottomNavigationBarItem(icon: Icon(Icons.qr_code_2), label: 'Attendance'),
-                  BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Students'),
+                  BottomNavigationBarItem(icon: Icon(Icons.edit_document), label: 'Grades'),
                 ],
               ),
             ),
@@ -227,14 +274,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
-      case 0:
-        return _buildHomeView();
-      case 1:
-        return _buildAttendanceScannerView();
-      case 2:
-        return _buildStudentsView();
-      default:
-        return _buildHomeView();
+      case 0: return _buildHomeView();
+      case 1: return _buildAttendanceScannerView();
+      case 2: return _buildGradingView();
+      default: return _buildHomeView();
     }
   }
 
@@ -264,22 +307,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           backgroundColor: AppTheme.darkCharcoal,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.calendar_month, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/timetable'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.person, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/profile'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/notifications'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/settings'),
-            ),
             IconButton(
               icon: const Icon(Icons.logout, color: AppTheme.mintGlow),
               onPressed: () => _handleLogout(context),
@@ -330,7 +357,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('My Active Courses', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('My Active Classes', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: AppTheme.mintGlow),
                     onPressed: _loadData,
@@ -349,7 +376,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                   child: const Center(
                     child: Text(
-                      'No courses found in database.\nUse the Import/Manage section to add courses.',
+                      'No courses assigned to you yet.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppTheme.pureWhite, height: 1.5),
                     ),
@@ -365,13 +392,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                           children: [
                             Text(c.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Code: ${c.courseCode}', style: const TextStyle(color: AppTheme.mintGlow)),
-                                const Icon(Icons.library_books, color: Colors.white54, size: 16),
-                              ],
-                            ),
+                            Text('Subject Code: ${c.courseCode}', style: const TextStyle(color: AppTheme.mintGlow)),
                           ],
                         ),
                       ),
@@ -401,7 +422,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Select Course Database', style: TextStyle(color: AppTheme.mintGlow, fontWeight: FontWeight.bold)),
+                      const Text('Select Subject', style: TextStyle(color: AppTheme.mintGlow, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -430,8 +451,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
-                      // THE LIVE SCANNER BUTTON
                       ElevatedButton.icon(
                         onPressed: _selectedCourse == null ? null : _showHourSelectionDialog,
                         icon: const Icon(Icons.camera_alt, color: AppTheme.darkCharcoal),
@@ -442,10 +461,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         ),
                         label: const Text('START LIVE SCANNER', style: TextStyle(color: AppTheme.darkCharcoal, fontWeight: FontWeight.bold)),
                       ),
-                      
                       const SizedBox(height: 16),
-                      
-                      // THE HISTORY BUTTON
                       ElevatedButton.icon(
                         onPressed: () {
                           Navigator.push(
@@ -473,69 +489,85 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  Widget _buildStudentsView() {
+  Widget _buildGradingView() {
     return SafeArea(
       child: Column(
         children: [
-          _buildSectionTopBar('Student Directory'),
+          _buildSectionTopBar('Grade Entry'),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
                 const SizedBox(height: 8),
-                Text(_selectedCourse?.courseName ?? 'No Course Selected', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('${_students.length} Enrolled Students', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 16)),
+                const Text('Academic Ledger', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
+                GlassContainer(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Select Subject Ledger', style: TextStyle(color: AppTheme.mintGlow, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(color: AppTheme.darkCharcoal, borderRadius: BorderRadius.circular(12)),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<Course>(
+                            isExpanded: true,
+                            dropdownColor: AppTheme.darkCharcoal,
+                            value: _selectedCourse,
+                            items: _courses.map((c) => DropdownMenuItem(value: c, child: Text(c.courseName, style: const TextStyle(color: AppTheme.pureWhite)))).toList(),
+                            onChanged: (Course? value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedCourse = value;
+                                _isLoading = true;
+                              });
+                              _loadStudentsForCourse(value.id!);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
                 
                 if (_students.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.only(top: 32.0),
-                    child: Center(
-                      child: Text('No students registered for this course.\nSelect a different course from the Attendance tab.', 
-                        textAlign: TextAlign.center, 
-                        style: TextStyle(color: Colors.white54, height: 1.5)
-                      ),
-                    ),
+                    padding: EdgeInsets.only(bottom: 16.0),
+                    child: Text('No students enrolled in this subject yet.', style: TextStyle(color: AppTheme.pureWhite)),
                   )
                 else
-                  ..._students.map((student) => GlassContainer(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: AppTheme.deepTeal,
-                          child: Text(student.firstName[0], style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+                  ..._students.map((student) {
+                    String currentGrade = _studentGrades[student.studentId] ?? 'Pending...';
+                    return GestureDetector(
+                      onTap: () => _openGradeEditor(student),
+                      child: GlassContainer(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: Text(student.fullName, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600))),
+                            Row(
+                              children: [
+                                Text(
+                                  currentGrade, 
+                                  style: TextStyle(
+                                    color: currentGrade.contains('Pending') ? Colors.orangeAccent : AppTheme.mintGlow, 
+                                    fontWeight: FontWeight.bold
+                                  )
+                                ),
+                                const SizedBox(width: 16),
+                                const Icon(Icons.edit, color: AppTheme.pureWhite, size: 18),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(student.fullName, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600, fontSize: 16)),
-                              const SizedBox(height: 4),
-                              Text('ID: ${student.studentId} | Grade: ${student.grade}', style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
-                  
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: _selectedCourse == null ? null : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ManageStudentsPage(courseId: _selectedCourse!.id!),
                       ),
-                    ).then((_) => _loadStudentsForCourse(_selectedCourse!.id!));
-                  },
-                  icon: const Icon(Icons.edit_document),
-                  label: const Text('MANAGE ENROLLMENT'),
-                ),
+                    );
+                  }),
                 const SizedBox(height: 80),
               ],
             ),
