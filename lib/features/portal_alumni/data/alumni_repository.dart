@@ -39,7 +39,7 @@ class AlumniEvent {
 }
 
 class AlumniRepository {
-  static const String _eventsKey = 'local_alumni_events_v1';
+  static const String _eventsKey = 'local_alumni_events_v2';
 
   Future<List<AlumniEvent>> fetchUpcomingEvents() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,8 +55,8 @@ class AlumniRepository {
         id: 'evt_01',
         title: 'Tech Innovators Networking Mixer',
         date: 'August 15, 2026',
-        location: 'Erbil International Hotel',
-        description: 'Join fellow graduates in the tech sector for an evening of networking, idea sharing, and opportunities with leading regional startups.',
+        location: 'Grand City Hotel',
+        description: 'Join fellow graduates in the tech sector for an evening of networking, idea sharing, and opportunities with leading startups.',
       ),
       AlumniEvent(
         id: 'evt_02',

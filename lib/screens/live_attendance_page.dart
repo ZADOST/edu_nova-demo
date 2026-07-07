@@ -380,7 +380,7 @@ class _LiveAttendancePageState extends State<LiveAttendancePage> with WidgetsBin
       currentScannedStudent = student;
     });
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isLate ? '${student.firstName} returned LATE' : 'Returned on time', backgroundColor: isLate ? Colors.orange : Colors.green)));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isLate ? '${student.firstName} returned LATE' : 'Returned on time'), backgroundColor: isLate ? Colors.orange : Colors.green));
     Future.delayed(const Duration(seconds: 3), () { if (mounted) setState(() => currentScannedStudent = null); });
   }
 

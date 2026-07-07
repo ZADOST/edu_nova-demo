@@ -217,14 +217,14 @@ class DatabaseHelper {
     return results.isNotEmpty ? Course.fromMap(results.first) : null;
   }
 
-  Future<void> addTeacher(String id, String name, String department, {double salary = 1500000.0, String status = 'Active'}) async {
+  Future<void> addTeacher(String id, String name, String department, {double salary = 150000.0, String status = 'Active'}) async {
     Database db = await database;
     String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     await db.insert('teachers', {
       'teacher_id': id, 
       'full_name': name, 
       'department': department, 
-      'email': '$id@tiu.edu.iq',
+      'email': '$id@edunova.edu',
       'salary': salary,
       'status': status,
       'hire_date': today

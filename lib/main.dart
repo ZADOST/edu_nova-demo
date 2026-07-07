@@ -5,36 +5,37 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized before async DB operations
+  // Ensure Flutter engine is initialized before running the app
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Force portrait mode for consistent UI layout
+  
+  // Force portrait mode for a consistent UI layout
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Local Database
+  // 1. Initialize the Local Authentication Database
   final localAuthDb = await LocalAuthDb.init();
-  
-  // Initialize Router
+
+  // 2. Instantiate the AppRouter with the database instance
   final appRouter = AppRouter(localAuthDb);
 
-  runApp(EduNovaApp(router: appRouter.router));
+  // 3. Pass the specific router instance to the root app
+  runApp(EduNovaApp(appRouter: appRouter));
 }
 
 class EduNovaApp extends StatelessWidget {
-  final RouterConfig<Object> router;
+  final AppRouter appRouter;
 
-  const EduNovaApp({super.key, required this.router});
+  const EduNovaApp({super.key, required this.appRouter});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Edu Nova',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      routerConfig: router,
+      debugShowCheckedModeBanner: false, // Removes the debug banner for a clean demo
+      theme: AppTheme.darkTheme, // Uses your pre-configured dark theme
+      routerConfig: appRouter.router, // Correctly accesses the instance member
     );
   }
 }
