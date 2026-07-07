@@ -66,8 +66,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     // OFFLINE DEMO LOGIC: Assign role based on typed email keyword
     String role = 'student'; // Default fallback
-    if (email.contains('teacher')) role = 'teacher';
-    else if (email.contains('parent')) role = 'parent';
+    if (email.contains('teacher')) {
+      role = 'teacher';
+    } else if (email.contains('parent')) role = 'parent';
     else if (email.contains('principal') || email.contains('admin')) role = 'principal';
     else if (email.contains('assistant')) role = 'assistant_principal';
     else if (email.contains('hr')) role = 'hr';
