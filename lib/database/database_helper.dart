@@ -49,7 +49,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // UPGRADED: Added salary, status, and hire_date for HR
     await db.execute('''
       CREATE TABLE teachers(
         teacher_id TEXT PRIMARY KEY,
@@ -149,7 +148,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // NEW HR TABLES
     await db.execute('''
       CREATE TABLE leave_requests(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -171,6 +169,17 @@ class DatabaseHelper {
         net_paid REAL,
         status TEXT DEFAULT 'Pending',
         FOREIGN KEY (teacher_id) REFERENCES teachers (teacher_id) ON DELETE CASCADE
+      )
+    ''');
+
+    // NEW FINANCE TABLE
+    await db.execute('''
+      CREATE TABLE student_finance(
+        student_id TEXT PRIMARY KEY,
+        total_tuition REAL DEFAULT 2500.0,
+        amount_paid REAL DEFAULT 0.0,
+        is_blocked INTEGER DEFAULT 0,
+        FOREIGN KEY (student_id) REFERENCES students (student_id) ON DELETE CASCADE
       )
     ''');
   }
@@ -208,7 +217,6 @@ class DatabaseHelper {
     return results.isNotEmpty ? Course.fromMap(results.first) : null;
   }
 
-  // UPGRADED: Added optional HR fields
   Future<void> addTeacher(String id, String name, String department, {double salary = 1500000.0, String status = 'Active'}) async {
     Database db = await database;
     String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -243,7 +251,19 @@ class DatabaseHelper {
 
   Future<int> addStudent(Student student) async {
     Database db = await database;
-    return await db.insert('students', student.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    int id = await db.insert('students', student.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    
+    // Auto-create a financial ledger for the new student
+    var existingFinance = await db.query('student_finance', where: 'student_id = ?', whereArgs: [student.studentId]);
+    if (existingFinance.isEmpty) {
+      await db.insert('student_finance', {
+        'student_id': student.studentId,
+        'total_tuition': 2500.0,
+        'amount_paid': 0.0,
+        'is_blocked': 0
+      });
+    }
+    return id;
   }
 
   Future<List<Student>> getAllStudents() async {
@@ -398,8 +418,6 @@ class DatabaseHelper {
   Future<void> updateLeaveStatus(int requestId, String status, String teacherId) async {
     Database db = await database;
     await db.update('leave_requests', {'status': status}, where: 'id = ?', whereArgs: [requestId]);
-    
-    // If approved, dynamically update teacher's current status
     if (status == 'Approved') {
       await db.update('teachers', {'status': 'On Leave'}, where: 'teacher_id = ?', whereArgs: [teacherId]);
     }
@@ -408,12 +426,9 @@ class DatabaseHelper {
   Future<void> processMonthlyPayroll(String month) async {
     Database db = await database;
     var teachers = await db.query('teachers');
-    
     for (var teacher in teachers) {
       double baseSalary = teacher['salary'] as double;
-      // In a real app, deductions would be calculated here based on 'On Leave' status
       double netPaid = baseSalary; 
-      
       var existing = await db.query('payroll', where: 'teacher_id = ? AND month = ?', whereArgs: [teacher['teacher_id'], month]);
       if (existing.isEmpty) {
         await db.insert('payroll', {
@@ -435,5 +450,45 @@ class DatabaseHelper {
       INNER JOIN teachers t ON p.teacher_id = t.teacher_id
       ORDER BY p.id DESC
     ''');
+  }
+
+  // ================= FINANCE & ACCOUNTING METHODS =================
+
+  Future<List<Map<String, dynamic>>> getFinancialRecords() async {
+    Database db = await database;
+    return await db.rawQuery('''
+      SELECT f.*, s.first_name, s.last_name, s.grade 
+      FROM student_finance f
+      INNER JOIN students s ON f.student_id = s.student_id
+      ORDER BY s.first_name ASC
+    ''');
+  }
+
+  Future<void> recordTuitionPayment(String studentId, double paymentAmount) async {
+    Database db = await database;
+    var financeData = await db.query('student_finance', where: 'student_id = ?', whereArgs: [studentId]);
+    if (financeData.isNotEmpty) {
+      double currentPaid = financeData.first['amount_paid'] as double;
+      double newPaid = currentPaid + paymentAmount;
+      
+      // If payment meets or exceeds the required amount, automatically unblock them
+      int isBlocked = financeData.first['is_blocked'] as int;
+      if (isBlocked == 1 && newPaid >= 1000.0) { // Example threshold to clear a block
+        isBlocked = 0; 
+      }
+      
+      await db.update('student_finance', 
+        {'amount_paid': newPaid, 'is_blocked': isBlocked}, 
+        where: 'student_id = ?', whereArgs: [studentId]
+      );
+    }
+  }
+
+  Future<void> toggleFinancialBlock(String studentId, bool isBlocked) async {
+    Database db = await database;
+    await db.update('student_finance', 
+      {'is_blocked': isBlocked ? 1 : 0}, 
+      where: 'student_id = ?', whereArgs: [studentId]
+    );
   }
 }
