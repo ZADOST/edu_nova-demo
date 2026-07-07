@@ -49,12 +49,16 @@ class DatabaseHelper {
       )
     ''');
 
+    // UPGRADED: Added salary, status, and hire_date for HR
     await db.execute('''
       CREATE TABLE teachers(
         teacher_id TEXT PRIMARY KEY,
         full_name TEXT,
         department TEXT,
-        email TEXT
+        email TEXT,
+        salary REAL DEFAULT 0.0,
+        status TEXT DEFAULT 'Active',
+        hire_date TEXT
       )
     ''');
 
@@ -131,7 +135,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // NEW: Administrative Request Queue
     await db.execute('''
       CREATE TABLE admin_requests(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,6 +146,31 @@ class DatabaseHelper {
         reason TEXT,
         status TEXT DEFAULT 'Pending',
         timestamp TEXT
+      )
+    ''');
+
+    // NEW HR TABLES
+    await db.execute('''
+      CREATE TABLE leave_requests(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        teacher_id TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        reason TEXT,
+        status TEXT DEFAULT 'Pending',
+        FOREIGN KEY (teacher_id) REFERENCES teachers (teacher_id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE payroll(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        teacher_id TEXT,
+        month TEXT,
+        base_salary REAL,
+        net_paid REAL,
+        status TEXT DEFAULT 'Pending',
+        FOREIGN KEY (teacher_id) REFERENCES teachers (teacher_id) ON DELETE CASCADE
       )
     ''');
   }
@@ -180,9 +208,19 @@ class DatabaseHelper {
     return results.isNotEmpty ? Course.fromMap(results.first) : null;
   }
 
-  Future<void> addTeacher(String id, String name, String department) async {
+  // UPGRADED: Added optional HR fields
+  Future<void> addTeacher(String id, String name, String department, {double salary = 1500000.0, String status = 'Active'}) async {
     Database db = await database;
-    await db.insert('teachers', {'teacher_id': id, 'full_name': name, 'department': department, 'email': '$id@school.edu'}, conflictAlgorithm: ConflictAlgorithm.replace);
+    String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await db.insert('teachers', {
+      'teacher_id': id, 
+      'full_name': name, 
+      'department': department, 
+      'email': '$id@tiu.edu.iq',
+      'salary': salary,
+      'status': status,
+      'hire_date': today
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getTeachers() async {
@@ -332,5 +370,70 @@ class DatabaseHelper {
   Future<void> updateRequestStatus(int requestId, String newStatus) async {
     Database db = await database;
     await db.update('admin_requests', {'status': newStatus}, where: 'id = ?', whereArgs: [requestId]);
+  }
+
+  // ================= HR & PAYROLL METHODS =================
+
+  Future<void> submitLeaveRequest(String teacherId, String startDate, String endDate, String reason) async {
+    Database db = await database;
+    await db.insert('leave_requests', {
+      'teacher_id': teacherId,
+      'start_date': startDate,
+      'end_date': endDate,
+      'reason': reason,
+      'status': 'Pending'
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getAllLeaveRequests() async {
+    Database db = await database;
+    return await db.rawQuery('''
+      SELECT l.*, t.full_name, t.department 
+      FROM leave_requests l
+      INNER JOIN teachers t ON l.teacher_id = t.teacher_id
+      ORDER BY l.id DESC
+    ''');
+  }
+
+  Future<void> updateLeaveStatus(int requestId, String status, String teacherId) async {
+    Database db = await database;
+    await db.update('leave_requests', {'status': status}, where: 'id = ?', whereArgs: [requestId]);
+    
+    // If approved, dynamically update teacher's current status
+    if (status == 'Approved') {
+      await db.update('teachers', {'status': 'On Leave'}, where: 'teacher_id = ?', whereArgs: [teacherId]);
+    }
+  }
+
+  Future<void> processMonthlyPayroll(String month) async {
+    Database db = await database;
+    var teachers = await db.query('teachers');
+    
+    for (var teacher in teachers) {
+      double baseSalary = teacher['salary'] as double;
+      // In a real app, deductions would be calculated here based on 'On Leave' status
+      double netPaid = baseSalary; 
+      
+      var existing = await db.query('payroll', where: 'teacher_id = ? AND month = ?', whereArgs: [teacher['teacher_id'], month]);
+      if (existing.isEmpty) {
+        await db.insert('payroll', {
+          'teacher_id': teacher['teacher_id'],
+          'month': month,
+          'base_salary': baseSalary,
+          'net_paid': netPaid,
+          'status': 'Disbursed'
+        });
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPayrollHistory() async {
+    Database db = await database;
+    return await db.rawQuery('''
+      SELECT p.*, t.full_name, t.department 
+      FROM payroll p
+      INNER JOIN teachers t ON p.teacher_id = t.teacher_id
+      ORDER BY p.id DESC
+    ''');
   }
 }
