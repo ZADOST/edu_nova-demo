@@ -2,11 +2,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/glass_container.dart';
 import '../db/local_auth_db.dart';
-import '../models/student_id_card.dart';
-import '../../features/dashboard_student/data/student_repository.dart';
+
+import '../../database/database_helper.dart';
+import '../../models/student.dart';
+import '../../models/course.dart';
 
 class ParentDashboard extends StatefulWidget {
   const ParentDashboard({super.key});
@@ -16,10 +19,10 @@ class ParentDashboard extends StatefulWidget {
 }
 
 class _ParentDashboardState extends State<ParentDashboard> {
-  final StudentRepository _repository = StudentRepository();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   
-  StudentIdCard? _childProfile;
-  List<CourseGrade> _childGrades = [];
+  Student? _child;
+  List<Map<String, dynamic>> _childAcademics = [];
   bool _isLoading = true;
   int _selectedIndex = 0;
 
@@ -30,23 +33,46 @@ class _ParentDashboardState extends State<ParentDashboard> {
   }
 
   Future<void> _loadData() async {
-    // For demo purposes, we link the parent to the first registered student ID (1001)
-    // If 1001 isn't found, it falls back to the dynamic TIU demo profile automatically.
-    final profile = await _repository.fetchStudentProfile('1001');
-    final grades = await _repository.fetchMyGrades(profile.name);
-
-    if (mounted) {
-      setState(() {
-        _childProfile = profile;
-        _childGrades = grades;
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _showMessage(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    setState(() => _isLoading = true);
+    try {
+      final allStudents = await _dbHelper.getAllStudents();
+      
+      if (allStudents.isNotEmpty) {
+        _child = allStudents.first; // Simulating linked child
+        
+        final db = await _dbHelper.database;
+        var enrollments = await db.rawQuery('''
+          SELECT c.* FROM courses c 
+          INNER JOIN enrollments e ON c.id = e.course_id 
+          WHERE e.student_id = ?
+        ''', [_child!.studentId]);
+        
+        List<Map<String, dynamic>> academicsList = [];
+        
+        for (var row in enrollments) {
+          Course subject = Course.fromMap(row);
+          String grade = await _dbHelper.getStudentGrade(_child!.studentId, subject.id!);
+          double latency = await _dbHelper.getStudentLatency(_child!.studentId, subject.id!);
+          
+          academicsList.add({
+            'subject': subject,
+            'grade': grade,
+            'latency': latency,
+          });
+        }
+        
+        if (mounted) {
+          setState(() {
+            _childAcademics = academicsList;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Parent Load Error: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -93,9 +119,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
               onTap: (index) => setState(() => _selectedIndex = index),
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Child'),
-                BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Attendance'),
+                BottomNavigationBarItem(icon: Icon(Icons.insights), label: 'Attendance'),
                 BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Grades'),
-                BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Notices'),
               ],
             ),
           ),
@@ -105,15 +130,34 @@ class _ParentDashboardState extends State<ParentDashboard> {
   }
 
   Widget _buildCurrentView() {
+    if (_child == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.family_restroom, color: AppTheme.mintGlow, size: 80),
+              const SizedBox(height: 24),
+              const Text('No Linked Student', style: TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              const Text('Your account is not linked to an active student. Please contact the Principal.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 16)),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () => _handleLogout(context),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow),
+                child: const Text('RETURN TO LOGIN', style: TextStyle(color: AppTheme.darkCharcoal, fontWeight: FontWeight.bold)),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
     switch (_selectedIndex) {
-      case 1:
-        return _buildAttendanceView();
-      case 2:
-        return _buildGradesView();
-      case 3:
-        return _buildAnnouncementsView();
-      default:
-        return _buildChildProfileView();
+      case 1: return _buildAttendanceView();
+      case 2: return _buildGradesView();
+      default: return _buildChildProfileView();
     }
   }
 
@@ -127,7 +171,6 @@ class _ParentDashboardState extends State<ParentDashboard> {
           IconButton(
             icon: const Icon(Icons.logout, color: AppTheme.mintGlow),
             onPressed: () => _handleLogout(context),
-            tooltip: 'Logout',
           ),
         ],
       ),
@@ -143,30 +186,22 @@ class _ParentDashboardState extends State<ParentDashboard> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Linked Student Profile', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
                 GlassContainer(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
                       const CircleAvatar(radius: 40, backgroundColor: AppTheme.mintGlow, child: Icon(Icons.person, color: AppTheme.darkCharcoal, size: 40)),
                       const SizedBox(height: 16),
-                      Text(_childProfile?.name ?? 'Loading...', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(_child!.fullName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text('Batch: ${_childProfile?.batch ?? ''}', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 14)),
+                      Text('Grade: ${_child!.grade}', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 14)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildInfoTile('School', 'Tishk International University (TIU)'),
-                _buildInfoTile('Department', _childProfile?.department ?? ''),
-                _buildInfoTile('Major', _childProfile?.course ?? ''),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => _showMessage('Viewing child profile details.'),
-                  child: const Text('VIEW FULL PROFILE'),
-                ),
+                _buildInfoTile('School', 'Local K-12 Institution'),
+                _buildInfoTile('Student ID', _child!.studentId),
+                _buildInfoTile('Enrolled Subjects', '${_childAcademics.length}'),
                 const SizedBox(height: 80),
               ],
             ),
@@ -185,19 +220,28 @@ class _ParentDashboardState extends State<ParentDashboard> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Attendance Overview', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                _buildInfoTile('Present', '92%'),
-                _buildInfoTile('Absent', '3 days'),
-                _buildInfoTile('Late', '1 day'),
-                const SizedBox(height: 24),
-                _buildInfoTile('Last Updated', 'Today, 08:30 AM'),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => _showMessage('Viewing attendance history.'),
-                  child: const Text('VIEW ATTENDANCE HISTORY'),
-                ),
+                const Text('Latency by Subject', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (_childAcademics.isEmpty)
+                  const Text('No attendance data available.', style: TextStyle(color: Colors.white60))
+                else
+                  ..._childAcademics.map((academic) {
+                    Course subject = academic['subject'];
+                    double latency = academic['latency'];
+                    Color latencyColor = latency >= 80 ? Colors.greenAccent : (latency >= 50 ? Colors.orangeAccent : Colors.redAccent);
+                    
+                    return GlassContainer(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(subject.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+                          Text('${latency.toStringAsFixed(0)}%', style: TextStyle(color: latencyColor, fontWeight: FontWeight.bold, fontSize: 18)),
+                        ],
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 80),
               ],
             ),
@@ -216,45 +260,27 @@ class _ParentDashboardState extends State<ParentDashboard> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Grades Summary', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                // Dynamically mapping the shared gradebook
-                ..._childGrades.map((gradeRecord) => _buildGradeRow(gradeRecord.courseName, gradeRecord.grade)),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => _showMessage('Opening detailed grade report.'),
-                  child: const Text('OPEN GRADE REPORT'),
-                ),
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementsView() {
-    return SafeArea(
-      child: Column(
-        children: [
-          _buildSectionTopBar('Notices'),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              children: [
-                const SizedBox(height: 8),
-                const Text('Announcements', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                _buildAnnouncementItem('Parent-teacher meeting regarding recent grades tomorrow at 5 PM.'),
-                _buildAnnouncementItem('Your child has an upcoming science fair this week.'),
-                _buildAnnouncementItem('Campus schedule updated for next Monday.'),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.push('/announcements'),
-                  child: const Text('VIEW ALL ANNOUNCEMENTS'),
-                ),
+                const Text('Subject Grades', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (_childAcademics.isEmpty)
+                  const Text('No grade data available.', style: TextStyle(color: Colors.white60))
+                else
+                  ..._childAcademics.map((academic) {
+                    Course subject = academic['subject'];
+                    String grade = academic['grade'];
+                    
+                    return GlassContainer(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(subject.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+                          Text(grade, style: TextStyle(color: grade.contains('Pending') ? Colors.orangeAccent : Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 18)),
+                        ],
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 80),
               ],
             ),
@@ -266,49 +292,16 @@ class _ParentDashboardState extends State<ParentDashboard> {
 
   Widget _buildInfoTile(String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: GlassContainer(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+            Text(title, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
             Text(value, style: const TextStyle(color: AppTheme.mintGlow, fontWeight: FontWeight.bold)),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildGradeRow(String subject, String grade) {
-    final isPending = grade.contains('Pending');
-    
-    return GlassContainer(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(subject, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600))),
-          Text(
-            grade, 
-            style: TextStyle(
-              color: isPending ? Colors.orangeAccent : AppTheme.mintGlow, 
-              fontSize: 16, 
-              fontWeight: FontWeight.bold
-            )
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementItem(String message) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(20),
-        child: Text(message, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 14, height: 1.4)),
       ),
     );
   }

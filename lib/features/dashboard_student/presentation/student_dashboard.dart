@@ -2,12 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
-import '../../../core/models/student_id_card.dart';
-import 'widgets/course_glass_card.dart';
-import '../data/student_repository.dart';
+
+import '../../../database/database_helper.dart';
+import '../../../models/student.dart';
+import '../../../models/course.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -17,35 +19,62 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  final StudentRepository _repository = StudentRepository();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   
-  StudentIdCard? _profile;
-  List<CourseGrade> _myGrades = [];
+  Student? _profile;
+  List<Map<String, dynamic>> _myAcademics = [];
   bool _isLoading = true;
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadStudentData();
   }
 
-  Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final authDb = LocalAuthDb(prefs);
-    
-    // Fallback to U_001 if the login ID isn't found
-    final currentUserId = authDb.userRole == 'student' ? '1001' : 'U_001'; 
-    
-    final profile = await _repository.fetchStudentProfile(currentUserId);
-    final grades = await _repository.fetchMyGrades(profile.name);
-
-    if (mounted) {
-      setState(() {
-        _profile = profile;
-        _myGrades = grades;
-        _isLoading = false;
-      });
+  Future<void> _loadStudentData() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Identify the logged-in student (For demo, we grab the first student in the DB)
+      final allStudents = await _dbHelper.getAllStudents();
+      
+      if (allStudents.isNotEmpty) {
+        _profile = allStudents.first;
+        
+        // 2. Fetch enrolled subjects and calculate real-time grades & latency
+        final db = await _dbHelper.database;
+        var enrollments = await db.rawQuery('''
+          SELECT c.* FROM courses c 
+          INNER JOIN enrollments e ON c.id = e.course_id 
+          WHERE e.student_id = ?
+        ''', [_profile!.studentId]);
+        
+        List<Map<String, dynamic>> academicsList = [];
+        
+        for (var row in enrollments) {
+          Course subject = Course.fromMap(row);
+          String grade = await _dbHelper.getStudentGrade(_profile!.studentId, subject.id!);
+          double latency = await _dbHelper.getStudentLatency(_profile!.studentId, subject.id!);
+          
+          academicsList.add({
+            'subject': subject,
+            'grade': grade,
+            'latency': latency,
+          });
+        }
+        
+        if (mounted) {
+          setState(() {
+            _myAcademics = academicsList;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Student Load Error: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -62,7 +91,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget build(BuildContext context) {
     // ignore: deprecated_member_use
     return WillPopScope(
-      onWillPop: _handleBackPressed,
+      onWillPop: () async {
+        if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+          return false;
+        }
+        return true;
+      },
       child: Scaffold(
         backgroundColor: AppTheme.darkCharcoal,
         body: _isLoading 
@@ -92,14 +127,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 selectedItemColor: AppTheme.mintGlow,
                 unselectedItemColor: AppTheme.pureWhite.withValues(alpha: 0.5),
                 currentIndex: _selectedIndex,
-                onTap: (index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
+                onTap: (index) => setState(() => _selectedIndex = index),
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Schedule'),
+                  BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Subjects'),
                   BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Grades'),
                   BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
                 ],
@@ -112,28 +143,39 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildCurrentView() {
+    if (_profile == null) return _buildEmptyStateView();
+    
     switch (_selectedIndex) {
-      case 0:
-        return _buildHomeView();
-      case 1:
-        return _buildScheduleView();
-      case 2:
-        return _buildGradesView();
-      case 3:
-        return _buildProfileView();
-      default:
-        return _buildHomeView();
+      case 0: return _buildHomeView();
+      case 1: return _buildScheduleView();
+      case 2: return _buildGradesView();
+      case 3: return _buildProfileView();
+      default: return _buildHomeView();
     }
   }
 
-  Future<bool> _handleBackPressed() async {
-    if (_selectedIndex != 0) {
-      setState(() {
-        _selectedIndex = 0;
-      });
-      return false;
-    }
-    return true;
+  Widget _buildEmptyStateView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.person_off, color: AppTheme.mintGlow, size: 80),
+            const SizedBox(height: 24),
+            const Text('No Student Profile Found', style: TextStyle(color: AppTheme.pureWhite, fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            const Text('Please log in as the Principal and register a student in the Master Directory first.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 16)),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () => _handleLogout(context),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow),
+              child: const Text('RETURN TO LOGIN', style: TextStyle(color: AppTheme.darkCharcoal, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSectionTopBar(String title) {
@@ -153,10 +195,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildHomeView() {
-    final firstName = _profile?.name.split(' ').first ?? 'Student';
-    // Friendly override for your specific demo profile
-    final displayGreeting = _profile?.name.contains('Shazad') == true ? 'ZAD' : firstName;
-
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -166,31 +204,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
           backgroundColor: AppTheme.darkCharcoal,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.calendar_month, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/timetable'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.person, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/profile'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/notifications'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings, color: AppTheme.mintGlow),
-              onPressed: () => context.push('/settings'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout, color: AppTheme.mintGlow),
-              onPressed: () => _handleLogout(context),
-            ),
+            IconButton(icon: const Icon(Icons.logout, color: AppTheme.mintGlow), onPressed: () => _handleLogout(context)),
           ],
           flexibleSpace: FlexibleSpaceBar(
             titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
             title: Text(
-              'Welcome back, $displayGreeting',
+              'Welcome back, ${_profile!.firstName}',
               style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold, fontSize: 18),
             ),
             background: Container(
@@ -198,32 +217,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.deepTeal.withValues(alpha: 0.8),
-                    AppTheme.darkCharcoal,
-                  ],
+                  colors: [AppTheme.deepTeal.withValues(alpha: 0.8), AppTheme.darkCharcoal],
                 ),
               ),
               child: Stack(
                 children: [
-                  Positioned(
-                    right: -50,
-                    top: -50,
-                    child: CircleAvatar(radius: 100, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.05)),
-                  ),
                   Positioned(
                     left: 24,
                     top: 80,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Spring Semester 2026', style: TextStyle(color: AppTheme.mintGlow, fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text('Grade Level: ${_profile!.grade}', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 14, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         GlassContainer(
                           blur: 5,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           borderRadius: BorderRadius.circular(12),
-                          child: const Text('GPA: 3.85', style: TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+                          child: Text('${_myAcademics.length} Enrolled Subjects', style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -240,18 +251,33 @@ class _StudentDashboardState extends State<StudentDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(onTap: () => setState(() => _selectedIndex = 1), child: _buildQuickAction(Icons.qr_code_scanner, 'Attendance')),
+                  GestureDetector(onTap: () => setState(() => _selectedIndex = 1), child: _buildQuickAction(Icons.menu_book, 'Subjects')),
                   GestureDetector(onTap: () => setState(() => _selectedIndex = 2), child: _buildQuickAction(Icons.assignment, 'Grades')),
-                  GestureDetector(onTap: () => setState(() => _selectedIndex = 2), child: _buildQuickAction(Icons.receipt_long, 'Transcript')),
+                  GestureDetector(onTap: () => setState(() => _selectedIndex = 2), child: _buildQuickAction(Icons.insights, 'Attendance')),
                   GestureDetector(onTap: () => setState(() => _selectedIndex = 3), child: _buildQuickAction(Icons.person, 'Profile')),
                 ],
               ),
               const SizedBox(height: 32),
-              const Text('Today\'s Courses', style: TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text('Academic Overview', style: TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              const CourseGlassCard(courseName: 'Advanced Java OOP', instructor: 'Dr. Alan Turing', time: '10:00 AM - 11:30 AM', progress: 0.75),
-              const CourseGlassCard(courseName: 'Database Management Systems', instructor: 'Prof. Grace Hopper', time: '12:00 PM - 01:30 PM', progress: 0.40),
-              const CourseGlassCard(courseName: 'Software Engineering Principles', instructor: 'Dr. Ada Lovelace', time: '02:00 PM - 03:30 PM', progress: 0.90),
+              
+              if (_myAcademics.isEmpty)
+                const Text('You have not been assigned to any subjects yet.', style: TextStyle(color: Colors.white60))
+              else
+                ..._myAcademics.map((academic) {
+                  Course subject = academic['subject'];
+                  return GlassContainer(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(subject.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.chevron_right, color: AppTheme.mintGlow),
+                      ],
+                    ),
+                  );
+                }),
               const SizedBox(height: 80),
             ]),
           ),
@@ -264,32 +290,37 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return SafeArea(
       child: Column(
         children: [
-          _buildSectionTopBar('Schedule'),
+          _buildSectionTopBar('My Subjects'),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Academic Schedule', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                GlassContainer(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.qr_code_2, color: AppTheme.mintGlow, size: 64),
-                      const SizedBox(height: 16),
-                      const Text('Smart Attendance Manager', style: TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('Scan the professor\'s classroom QR code to log your attendance instantly.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.7))),
-                      const SizedBox(height: 16),
-                      ElevatedButton(onPressed: () => context.push('/student/attendance'), child: const Text('OPEN SCANNER')),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                const Text('Upcoming Classes', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                const CourseGlassCard(courseName: 'Advanced Java OOP', instructor: 'Dr. Alan Turing', time: '10:00 AM - 11:30 AM', progress: 0.0),
+                if (_myAcademics.isEmpty)
+                  const Text('No subjects assigned.', style: TextStyle(color: Colors.white60))
+                else
+                  ..._myAcademics.map((academic) {
+                    Course subject = academic['subject'];
+                    return GlassContainer(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(subject.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text('Code: ${subject.courseCode}', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 12)),
+                          const Divider(color: Colors.white24, height: 24),
+                          Row(
+                            children: [
+                              const Icon(Icons.person, color: Colors.white60, size: 16),
+                              const SizedBox(width: 8),
+                              Text(subject.teacherId != null ? 'Assigned Teacher' : 'Teacher Pending', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                            ],
+                          )
+                        ],
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 80),
               ],
             ),
@@ -303,51 +334,58 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return SafeArea(
       child: Column(
         children: [
-          _buildSectionTopBar('Grades'),
+          _buildSectionTopBar('Academic Progress'),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Academic Transcript', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                // Render dynamically fetched grades
-                ..._myGrades.map((gradeRecord) => _buildGradeRow(gradeRecord.courseName, gradeRecord.grade)),
+                if (_myAcademics.isEmpty)
+                  const Text('No academic data available.', style: TextStyle(color: Colors.white60))
+                else
+                  ..._myAcademics.map((academic) {
+                    Course subject = academic['subject'];
+                    String grade = academic['grade'];
+                    double latency = academic['latency'];
+                    
+                    Color latencyColor = latency >= 80 ? Colors.greenAccent : (latency >= 50 ? Colors.orangeAccent : Colors.redAccent);
+                    
+                    return GlassContainer(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(subject.courseName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Current Grade', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                  const SizedBox(height: 4),
+                                  Text(grade, style: TextStyle(color: grade.contains('Pending') ? Colors.orangeAccent : Colors.blueAccent, fontSize: 24, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text('Attendance Rate', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                                  const SizedBox(height: 4),
+                                  Text('${latency.toStringAsFixed(0)}%', style: TextStyle(color: latencyColor, fontSize: 24, fontWeight: FontWeight.bold)),
+                                ],
+                              )
+                            ],
+                          )
+                        ],
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 80),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGradeRow(String course, String grade) {
-    // Generate a mock percentage string for visual completion unless it's pending
-    final isPending = grade.contains('Pending');
-    final displayPercentage = isPending ? 'N/A' : 'Graded';
-
-    return GlassContainer(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(course, style: const TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.w600))),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                grade, 
-                style: TextStyle(
-                  color: isPending ? Colors.orangeAccent : AppTheme.mintGlow, 
-                  fontSize: 20, 
-                  fontWeight: FontWeight.bold
-                )
-              ),
-              Text(displayPercentage, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.5), fontSize: 12)),
-            ],
-          )
         ],
       ),
     );
@@ -362,18 +400,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               children: [
-                const SizedBox(height: 8),
-                const Text('Student Profile', style: TextStyle(color: AppTheme.pureWhite, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
                 GlassContainer(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
                       CircleAvatar(radius: 40, backgroundColor: AppTheme.mintGlow.withValues(alpha: 0.2), child: const Icon(Icons.person, size: 40, color: AppTheme.mintGlow)),
                       const SizedBox(height: 16),
-                      Text(_profile?.name ?? 'Loading...', style: const TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(_profile!.fullName, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text('Student ID: ${_profile?.uniqueCode ?? ''}', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
+                      Text('Student ID: ${_profile!.studentId}', style: const TextStyle(color: AppTheme.mintGlow, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -384,15 +419,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      _buildProfileDetailRow('University', 'Tishk International University (TIU)'),
+                      _buildProfileDetailRow('Grade Level', _profile!.grade),
                       const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Department', _profile?.department ?? ''),
+                      _buildProfileDetailRow('Enrolled Subjects', '${_myAcademics.length}'),
                       const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Major Course', _profile?.course ?? ''),
-                      const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Batch Group', _profile?.batch ?? ''),
-                      const Divider(color: Colors.white24, height: 24),
-                      _buildProfileDetailRow('Organization', 'KSTIU Membership'),
+                      _buildProfileDetailRow('System Status', 'Active'),
                     ],
                   ),
                 ),
@@ -409,7 +440,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 110, child: Text(label, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 13))),
+        SizedBox(width: 120, child: Text(label, style: TextStyle(color: AppTheme.pureWhite.withValues(alpha: 0.6), fontSize: 13))),
         Expanded(child: Text(value, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
     );
