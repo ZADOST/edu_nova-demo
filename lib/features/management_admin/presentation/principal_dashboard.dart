@@ -6,11 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/db/local_auth_db.dart';
 import '../../../core/widgets/glass_container.dart';
-
 import '../../../database/database_helper.dart';
 import '../../../models/course.dart';
 import '../../../models/student.dart';
+
+// Import the missing screens
 import '../../../screens/manage_students_page.dart';
+import '../../../screens/import_page.dart';
+import '../../../screens/all_students_page.dart';
 
 class PrincipalDashboard extends StatefulWidget {
   const PrincipalDashboard({super.key});
@@ -29,10 +32,11 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
   List<Course> _subjects = [];
   List<Map<String, dynamic>> _teachers = [];
   Course? _selectedMonitoringSubject;
+  
   List<Student> _enrolledStudents = [];
   Map<String, double> _studentLatencies = {};
   Map<String, String> _studentGrades = {};
-
+  
   bool _isLoading = true;
   int _selectedIndex = 0;
 
@@ -43,7 +47,6 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
     _loadSystemData();
   }
 
-  // Ensures we have teachers to assign if the database is fresh
   Future<void> _seedInitialStaff() async {
     final existing = await _dbHelper.getTeachers();
     if (existing.isEmpty) {
@@ -74,7 +77,7 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
           _isLoading = false;
         });
       }
-
+      
       if (_selectedMonitoringSubject != null) {
         await _loadMonitoringData(_selectedMonitoringSubject!.id!);
       }
@@ -88,12 +91,12 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
     final students = await _dbHelper.getStudentsInCourse(subjectId);
     Map<String, double> latencies = {};
     Map<String, String> grades = {};
-
+    
     for (var s in students) {
       latencies[s.studentId] = await _dbHelper.getStudentLatency(s.studentId, subjectId);
       grades[s.studentId] = await _dbHelper.getStudentGrade(s.studentId, subjectId);
     }
-
+    
     setState(() {
       _enrolledStudents = students;
       _studentLatencies = latencies;
@@ -111,7 +114,7 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
   void _showAddSubjectDialog() {
     final nameCtrl = TextEditingController();
     final codeCtrl = TextEditingController();
-
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -302,6 +305,31 @@ class _PrincipalDashboardState extends State<PrincipalDashboard> {
               ),
               const SizedBox(height: 16),
               _buildStatCard('$_totalSubjects', 'Active School Subjects', Icons.library_books),
+              const SizedBox(height: 32),
+              
+              // FIX: Added the missing action buttons to reach the Import and Directory pages
+              const Text('Administrative Actions', style: TextStyle(color: AppTheme.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AllStudentsPage()))
+                  .then((_) => _loadSystemData());
+                },
+                icon: const Icon(Icons.folder_shared, color: AppTheme.darkCharcoal),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.mintGlow, minimumSize: const Size(double.infinity, 50)),
+                label: const Text('OPEN MASTER DIRECTORY', style: TextStyle(color: AppTheme.darkCharcoal, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ImportPage()))
+                  .then((_) => _loadSystemData());
+                },
+                icon: const Icon(Icons.upload_file, color: AppTheme.pureWhite),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepTeal, minimumSize: const Size(double.infinity, 50)),
+                label: const Text('IMPORT EXCEL DATA', style: TextStyle(color: AppTheme.pureWhite, fontWeight: FontWeight.bold)),
+              ),
+              
               const SizedBox(height: 80),
             ]),
           ),

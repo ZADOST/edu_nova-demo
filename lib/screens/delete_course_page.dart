@@ -51,7 +51,9 @@ class _DeleteCoursePageState extends State<DeleteCoursePage> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               Navigator.pop(context);
-              for (int id in toDelete) await _dbHelper.deleteCourse(id);
+              for (int id in toDelete) {
+                await _dbHelper.deleteCourse(id);
+              }
               _loadCourses();
               if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deleted ${toDelete.length} subjects.')));
             },

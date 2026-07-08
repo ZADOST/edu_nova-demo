@@ -16,7 +16,7 @@ class AlumniDashboard extends StatefulWidget {
 
 class _AlumniDashboardState extends State<AlumniDashboard> {
   int _selectedIndex = 0;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   Future<void> _handleLogout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();

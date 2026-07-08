@@ -2,7 +2,7 @@ class Course {
   int? id;
   String courseName;
   String courseCode;
-  String? teacherId; // Added to fix the 'teacherId' getter error
+  String? teacherId;
 
   Course({
     this.id,
@@ -28,4 +28,13 @@ class Course {
       'teacher_id': teacherId,
     };
   }
+
+  // FIX: Added Equality Operators to prevent Dropdown Assertion Red Screens
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Course && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id?.hashCode ?? 0;
 }

@@ -13,9 +13,11 @@ import '../../../database/database_helper.dart';
 import '../../../models/course.dart';
 import '../../../models/student.dart';
 
-// Live Functional Screens
+// Screens
 import '../../../screens/live_attendance_page.dart';
 import '../../../screens/attendance_records_page.dart';
+import '../../../core/screens/profile_screen.dart';
+import '../../../core/screens/settings_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({super.key});
@@ -236,7 +238,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             : _buildCurrentView(),
         extendBody: true,
         bottomNavigationBar: Container(
-          margin: const EdgeInsets.all(24),
+          margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
@@ -263,6 +265,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
                   BottomNavigationBarItem(icon: Icon(Icons.qr_code_2), label: 'Attendance'),
                   BottomNavigationBarItem(icon: Icon(Icons.edit_document), label: 'Grades'),
+                  BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+                  BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
                 ],
               ),
             ),
@@ -277,6 +281,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       case 0: return _buildHomeView();
       case 1: return _buildAttendanceScannerView();
       case 2: return _buildGradingView();
+      case 3: return const ProfileScreen(); // Re-integrated from your previous UI
+      case 4: return const SettingsScreen(); // Re-integrated from your previous UI
       default: return _buildHomeView();
     }
   }

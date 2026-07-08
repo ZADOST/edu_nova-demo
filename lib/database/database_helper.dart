@@ -172,11 +172,11 @@ class DatabaseHelper {
       )
     ''');
 
-    // NEW FINANCE TABLE
+    // Default tuition is now 3,750,000 IQD (to cleanly divide into 5 installments of 750,000)
     await db.execute('''
       CREATE TABLE student_finance(
         student_id TEXT PRIMARY KEY,
-        total_tuition REAL DEFAULT 2500.0,
+        total_tuition REAL DEFAULT 3750000.0,
         amount_paid REAL DEFAULT 0.0,
         is_blocked INTEGER DEFAULT 0,
         FOREIGN KEY (student_id) REFERENCES students (student_id) ON DELETE CASCADE
@@ -217,7 +217,7 @@ class DatabaseHelper {
     return results.isNotEmpty ? Course.fromMap(results.first) : null;
   }
 
-  Future<void> addTeacher(String id, String name, String department, {double salary = 150000.0, String status = 'Active'}) async {
+  Future<void> addTeacher(String id, String name, String department, {double salary = 1500000.0, String status = 'Active'}) async {
     Database db = await database;
     String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     await db.insert('teachers', {
@@ -253,12 +253,12 @@ class DatabaseHelper {
     Database db = await database;
     int id = await db.insert('students', student.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     
-    // Auto-create a financial ledger for the new student
+    // Auto-create a financial ledger in IQD for the new student
     var existingFinance = await db.query('student_finance', where: 'student_id = ?', whereArgs: [student.studentId]);
     if (existingFinance.isEmpty) {
       await db.insert('student_finance', {
         'student_id': student.studentId,
-        'total_tuition': 2500.0,
+        'total_tuition': 3750000.0,
         'amount_paid': 0.0,
         'is_blocked': 0
       });
@@ -471,9 +471,9 @@ class DatabaseHelper {
       double currentPaid = financeData.first['amount_paid'] as double;
       double newPaid = currentPaid + paymentAmount;
       
-      // If payment meets or exceeds the required amount, automatically unblock them
+      // Remove financial block if payment logic is made
       int isBlocked = financeData.first['is_blocked'] as int;
-      if (isBlocked == 1 && newPaid >= 1000.0) { // Example threshold to clear a block
+      if (isBlocked == 1 && newPaid > currentPaid) {
         isBlocked = 0; 
       }
       
